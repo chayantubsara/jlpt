@@ -1466,6 +1466,9 @@ function autoSubmitExamFinal(isPenalized) {
         isPenalized: isPenalized 
     }, function(res) {
         hideLoading();
+
+        // เพิ่มการเช็ค isMobile แบบเดียวกับตอนเข้าห้องสอบ
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if(res.status === "Penalized") {
             showAlert(
@@ -1473,7 +1476,12 @@ function autoSubmitExamFinal(isPenalized) {
                 `ส่งคำตอบแล้ว\n\nเนื่องจากตรวจพบการทุจริต คะแนนจึงถูกปรับเป็น 0`, 
                 () => {
                     document.getElementById("cheatOverlay").classList.add("hidden");
-                    document.exitFullscreen().catch(() => {});
+                    
+                    // ปรับปรุงการเรียก exitFullscreen ไม่ให้ Error บนมือถือ
+                    if (!isMobile && typeof document.exitFullscreen === "function" && document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => {});
+                    }
+                    
                     document.getElementById("examActiveView").classList.add("hidden");
                     showMainDashboard();
                 }
@@ -1484,7 +1492,12 @@ function autoSubmitExamFinal(isPenalized) {
                 `คะแนน: ${res.score} / ${res.total}\n\nขอบคุณที่ใช้งานระบบสอบออนไลน์ของเรา`, 
                 () => {
                     document.getElementById("cheatOverlay").classList.add("hidden");
-                    document.exitFullscreen().catch(() => {});
+                    
+                    // ปรับปรุงการเรียก exitFullscreen ไม่ให้ Error บนมือถือ
+                    if (!isMobile && typeof document.exitFullscreen === "function" && document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => {});
+                    }
+                    
                     document.getElementById("examActiveView").classList.add("hidden");
                     showMainDashboard();
                 }
