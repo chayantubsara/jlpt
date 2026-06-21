@@ -196,25 +196,54 @@
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: rgba(155,125,74,0.05); }
 
-        /* ── EXAM CARD (student list) ── */
         .exam-card {
             background: var(--ivory);
             border: 1.5px solid var(--line);
             border-radius: var(--radius-sm);
-            padding: 20px; position: relative; overflow: hidden;
+            padding: 20px; 
+            position: relative; 
+            overflow: hidden;
         }
-        .exam-card::before {
-            content: 'JLPT';
-            position: absolute; top: 14px; right: 14px;
-            font-family: 'Noto Serif JP', serif;
-            font-size: 11px; font-weight: 700; color: var(--red);
-            border: 1.5px solid var(--red); padding: 2px 6px;
-            border-radius: 2px; letter-spacing: 0.12em;
-        }
+
         .exam-card h4 {
-            font-size: 15px; color: var(--navy); margin-bottom: 8px; padding-right: 46px;
+            font-size: 15px; 
+            color: var(--navy); 
+            margin-bottom: 12px;
+            margin-top: 0;
+            line-height: 1.4;
+            max-height: 2.8em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-wrap: break-word;
         }
-        .exam-card p { font-size: 12px; color: var(--ink-light); }
+
+        .exam-card p { 
+            font-size: 12px; 
+            color: var(--ink-light);
+            margin: 0;
+        }
+
+        /* TAG - อยู่ใต้ชื่อ ปกติๆ */
+        .exam-card-tag {
+            display: inline-block;
+            font-family: 'Noto Serif JP', serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--red);
+            border: 1.5px solid var(--red);
+            padding: 2px 8px;
+            border-radius: 3px;
+            letter-spacing: 0.12em;
+            background: var(--ivory);
+            margin-bottom: 10px;
+        }
+
+        /* ถ้าชื่อยาว ให้ tag เบลอ (blur) */
+        .exam-card.title-overflow .exam-card-tag {
+            opacity: 0.5;
+            filter: blur(0.5px);
+            pointer-events: none;
+        }
 
         /* ── EXAM ACTIVE VIEW ── */
         #examActiveView .exam-header {
@@ -593,6 +622,7 @@
       width: 100%;
     }
   }
+  
     </style>
 </head>
 <body>
@@ -665,30 +695,30 @@
     </div>
 
     <div id="studentView" class="view hidden">
-        <div class="tab-menu">
-            <button class="tab-btn active" onclick="switchStudentTab('examListTab')">ข้อสอบที่เปิดอยู่</button>
-            <button class="tab-btn" onclick="switchStudentTab('historyTab')">ประวัติการสอบ</button>
-        </div>
+    <div class="tab-menu">
+        <button class="tab-btn active" onclick="switchStudentTab('examListTab')">ข้อสอบที่เปิดอยู่</button>
+        <button class="tab-btn" onclick="switchStudentTab('historyTab')">ประวัติการสอบ</button>
+    </div>
 
-        <div id="examListTab" class="sub-view">
-            <div id="examsGridContainer" class="grid-2"></div>
-        </div>
+    <div id="examListTab" class="sub-view">
+        <div id="examsGridContainer" class="grid-2"></div>
+    </div>
 
-        <div id="historyTab" class="sub-view hidden">
-            <h3 style="font-size:14px; color:var(--navy); margin-bottom:4px;">ผลการประเมินคะแนนย้อนหลัง</h3>
-            <div class="table-responsive">
-                <table>
-                    <thead><tr>
-                        <th>ชุดข้อสอบ</th>
-                        <th>วันเวลา</th>
-                        <th>คะแนน</th>
-                        <th>สถานะ</th>
-                    </tr></thead>
-                    <tbody id="historyTableBody"></tbody>
-                </table>
-            </div>
+    <div id="historyTab" class="sub-view hidden">
+        <h3 style="font-size:14px; color:var(--navy); margin-bottom:4px;">ผลการประเมินคะแนนย้อนหลัง</h3>
+        <div class="table-responsive">
+            <table>
+                <thead><tr>
+                    <th>ชุดข้อสอบ</th>
+                    <th>วันเวลา</th>
+                    <th>คะแนน</th>
+                    <th>สถานะ</th>
+                </tr></thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
         </div>
     </div>
+</div>
 
     <div id="examActiveView" class="view hidden">
         <div class="exam-header">
@@ -742,12 +772,16 @@
 
                     <label style="color: var(--red);">เฉลยที่ถูกต้อง</label>
                     <input type="text" id="qAnswer" placeholder="คั่นด้วยจุลภาคกรณีหลายคำตอบ">
+                    
+                    <label>หมวดหมู่ (Tag) - คั่นด้วยจุลภาค</label>
+                    <input type="text" id="qTags" placeholder="เช่น: ไวยากรณ์,ฟังบอก,อ่านเข้าใจ">
+                    
                     <button class="btn-success" onclick="saveQuestionManual()" style="width:100%; margin-top:18px;">บันทึกลงคลัง</button>
                 </div>
                 <div class="card">
                     <h4>รายการคลังข้อสอบ</h4>
                     <div class="table-responsive" style="max-height:460px;">
-                        <table><thead><tr><th>คำถาม</th><th>ประเภท</th></tr></thead><tbody id="qPoolTableBody"></tbody></table>
+                        <table><thead><tr><th>คำถาม</th><th>ประเภท</th><th>Tag</th><th>ดำเนินการ</th></tr></thead><tbody id="qPoolTableBody"></tbody></table>
                     </div>
                 </div>
             </div>
@@ -807,6 +841,10 @@
                     <h4>สร้างชุดข้อสอบ (จากคลังที่มีอยู่)</h4>
                     <label>ชื่อชุดข้อสอบ</label>
                     <input type="text" id="examTitleInput">
+                    
+                    <label>Tag ชุดข้อสอบ (เช่น: JLPT, Midterm, Final)</label>
+                    <input type="text" id="examTagInput" placeholder="JLPT">
+                    
                     <label>โหมดเวลา</label>
                     <select id="examDurationType">
                         <option value="total">เวลารวมทั้งชุด (นาที)</option>
@@ -822,11 +860,11 @@
                     </label>
                     <h5 style="font-size:11px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; margin: 16px 0 8px;">เลือกข้อสอบเข้าชุด</h5>
                     <div id="examQCheckboxSelector"></div>
-                    <button class="btn-primary" onclick="saveExamSet()" style="width:100%; margin-top:18px;">สร้างชุดข้อสอบ</button>
+                    <button class="btn-success" onclick="saveExamSet()" style="width:100%; margin-top:18px;">สร้างชุดข้อสอบ</button>
                 </div>
                 <div class="card">
                     <h4>ชุดข้อสอบที่เปิดใช้งาน</h4>
-                    <ul id="activeExamsList"></ul>
+                    <ul id="activeExamsList" style="list-style:none; max-height:400px; overflow-y:auto;"></ul>
                 </div>
             </div>
         </div>
@@ -852,6 +890,61 @@
             class="btn-primary" style="width:100%; margin-top:22px;">
             รับทราบ — กลับเข้าห้องสอบ
         </button>
+    </div>
+</div>
+<!-- เพิ่มหลัง #modalOverlay ปิด -->
+<div id="editQuestionModal" class="modal-overlay">
+    <div class="modal-content">
+        <h2>แก้ไขข้อสอบ</h2>
+        <label>ข้อความคำถาม</label>
+        <textarea id="editQText" rows="2"></textarea>
+        <label>ประเภท</label>
+        <select id="editQType" onchange="adjustEditOptionForm()">
+            <option value="multiple_choice">ปรนัย (เลือก 1)</option>
+            <option value="multiple_select">ปรนัยหลายคำตอบ</option>
+            <option value="short_answer">อัตนัย/เติมคำ</option>
+        </select>
+        <div id="editOptionsArea" style="margin-top:16px;"></div>
+        <label>เฉลย</label>
+        <input type="text" id="editQAnswer">
+        <label>หมวดหมู่ (Tag) - คั่นด้วยจุลภาค</label>
+        <input type="text" id="editQTags" placeholder="เช่น: ไวยากรณ์,ฟังบอก">
+        <div class="modal-buttons">
+            <button class="btn-success" onclick="saveEditQuestion()">บันทึก</button>
+            <button class="btn-ghost" onclick="closeEditQuestionModal()">ยกเลิก</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal แก้ไขชุดข้อสอบ -->
+<div id="editExamModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
+        <h2>แก้ไขชุดข้อสอบ</h2>
+        <label>ชื่อชุดข้อสอบ</label>
+        <input type="text" id="editExamTitle">
+        
+        <label>Tag ชุดข้อสอบ (เช่น: JLPT, Midterm, Final)</label>
+        <input type="text" id="editExamTag" placeholder="JLPT">
+        
+        <label>โหมดเวลา</label>
+        <select id="editExamDurationType">
+            <option value="total">เวลารวมทั้งชุด (นาที)</option>
+            <option value="per_question">เวลารายข้อ (วินาที)</option>
+        </select>
+        <label>ระบุเวลา</label>
+        <input type="text" id="editExamDurationValue" value="45">
+        <label style="text-transform:none; display:flex; align-items:center; gap:8px; font-size:13px; margin-top:12px;">
+            <input type="checkbox" id="editExamRandomize" style="width:16px; height:16px; margin:0;"> สุ่มลำดับข้อสอบ
+        </label>
+        <label style="text-transform:none; display:flex; align-items:center; gap:8px; font-size:13px; margin-top:8px;">
+            <input type="checkbox" id="editExamShowAnswers" style="width:16px; height:16px; margin:0;"> แสดงเฉลยหลังสอบ
+        </label>
+        <h5 style="font-size:11px; color:var(--gold); margin-top:16px;">เลือกข้อสอบ</h5>
+        <div id="editExamQSelector" style="max-height: 220px; overflow-y: auto; padding: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm);"></div>
+        <div class="modal-buttons" style="margin-top:20px;">
+            <button class="btn-success" onclick="saveEditExam()">บันทึก</button>
+            <button class="btn-ghost" onclick="closeEditExamModal()">ยกเลิก</button>
+        </div>
     </div>
 </div>
 
@@ -1197,12 +1290,24 @@ function loadStudentDashboardData() {
         container.innerHTML = "";
         for(let key in exams) {
             let ex = exams[key];
-            container.innerHTML += `
-                <div class="exam-card">
-                    <h4>${ex.title}</h4>
-                    <p style="margin-bottom:14px;">โหมด: ${ex.settings.durationType === 'total' ? 'จับเวลารวม' : 'จับเวลารายข้อ'}</p>
+            let tag = ex.tag || "EXAM";
+            let modeText = ex.settings.durationType === 'total' ? 'จับเวลารวม' : 'จับเวลารายข้อ';
+            
+            // สร้าง Card
+            let cardHTML = `
+                <div class="exam-card" id="card_${key}">
+                    <h4 id="title_${key}">${ex.title}</h4>
+                    <div class="exam-card-tag">${tag}</div>
+                    <p style="margin-bottom:14px;">โหมด: ${modeText}</p>
                     <button class="btn-primary" onclick="showEnterExamConfirm('${key}', '${ex.title}')" style="width:100%;">เข้าห้องสอบ</button>
                 </div>`;
+            
+            container.innerHTML += cardHTML;
+            
+            // หลังจาก DOM render เสร็จ ให้เช็คว่าชื่อล้นหรือไม่
+            setTimeout(() => {
+                checkTitleOverflow(key);
+            }, 50);
         }
     });
     
@@ -1211,14 +1316,50 @@ function loadStudentDashboardData() {
         hideLoading();
         let tbody = document.getElementById("historyTableBody");
         tbody.innerHTML = "";
-        history.forEach(h => {
-            let badge = h.status === 'Normal'
-                ? `<span class="badge badge-normal">ปกติ</span>`
-                : `<span class="badge badge-cheat">โมฆะ</span>`;
-            tbody.innerHTML += `<tr><td><b>${h.examTitle}</b></td><td>${new Date(h.timestamp).toLocaleString()}</td><td style="font-weight:700;">${h.score} / ${h.total}</td><td>${badge}</td></tr>`;
-        });
+        if(history && history.length > 0) {
+            history.forEach(h => {
+                let badge = h.status === 'Normal'
+                    ? `<span class="badge badge-normal">ปกติ</span>`
+                    : `<span class="badge badge-cheat">โมฆะ</span>`;
+                tbody.innerHTML += `<tr>
+                    <td><b>${h.examTitle}</b></td>
+                    <td>${new Date(h.timestamp).toLocaleString('th-TH')}</td>
+                    <td style="font-weight:700;">${h.score} / ${h.total}</td>
+                    <td>${badge}</td>
+                </tr>`;
+            });
+        }
     });
 }
+
+/**
+ * เช็คว่าชื่อข้อสอบล้นหรือไม่
+ * ถ้าล้นให้เบลอ tag
+ */
+function checkTitleOverflow(cardKey) {
+    let titleEl = document.getElementById(`title_${cardKey}`);
+    let cardEl = document.getElementById(`card_${cardKey}`);
+    
+    if(!titleEl || !cardEl) return;
+    
+    // เช็คว่า text มีการขึ้นบรรทัดใหม่หรือไม่
+    let hasOverflow = titleEl.scrollHeight > titleEl.clientHeight;
+    
+    if(hasOverflow) {
+        cardEl.classList.add("title-overflow");
+    } else {
+        cardEl.classList.remove("title-overflow");
+    }
+}
+
+// ถ้าหน้าต่างเปลี่ยนขนาด ให้ re-check ใหม่
+window.addEventListener("resize", () => {
+    let allCards = document.querySelectorAll('[id^="card_"]');
+    allCards.forEach(card => {
+        let cardId = card.id.replace("card_", "");
+        checkTitleOverflow(cardId);
+    });
+});
 
 // ═══════════════════════════════════════════════════════════════
 // ส่วนที่ 7: EXAM ENTRY FLOW (ใหม่ + แก้ไข)
@@ -1706,6 +1847,7 @@ function createExamFromJSON() {
  */
 function saveExamSet() {
     let title = document.getElementById("examTitleInput").value;
+    let tag = document.getElementById("examTagInput").value.trim() || "EXAM";
     let dType = document.getElementById("examDurationType").value;
     let dVal = document.getElementById("examDurationValue").value;
     let rand = document.getElementById("examRandomize").checked;
@@ -1722,6 +1864,7 @@ function saveExamSet() {
     showLoading("กำลังสร้างชุดข้อสอบ...");
     callAPI("createExam", { 
         title, 
+        tag: tag,
         questionIds: qids, 
         settings: { 
             durationType: dType, 
@@ -1735,7 +1878,12 @@ function saveExamSet() {
             "✅ สำเร็จ", 
             "สร้างชุดข้อสอบสำเร็จ", 
             () => {
-                loadAdminPanelData();
+                document.getElementById("examTitleInput").value = "";
+                document.getElementById("examTagInput").value = "JLPT";
+                document.getElementById("examDurationValue").value = "45";
+                document.getElementById("examRandomize").checked = false;
+                document.getElementById("examShowAnswers").checked = true;
+                loadActiveExamsWithActions();
             }
         );
     });
@@ -1778,6 +1926,393 @@ function switchStudentTab(tabId) {
 // ═══════════════════════════════════════════════════════════════
 // จบไฟล์ JavaScript
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// QUESTION MANAGEMENT - EDIT/DELETE
+// ═══════════════════════════════════════════════════════════════
+
+let editingQuestionId = null;
+let allQuestionsData = {};
+
+function loadQuestionsWithActions() {
+    showLoading("กำลังโหลดข้อสอบ...");
+    callAPI("getQuestions", {}, function(qs) {
+        hideLoading();
+        allQuestionsData = qs;
+        let tbody = document.getElementById("qPoolTableBody");
+        let selector = document.getElementById("examQCheckboxSelector");
+        tbody.innerHTML = ""; 
+        selector.innerHTML = "";
+        
+        for(let key in qs) {
+            let q = qs[key];
+            let tagDisplay = (q.tags && q.tags.length > 0) ? q.tags.join(", ") : "—";
+            tbody.innerHTML += `<tr>
+                <td>${q.text}</td>
+                <td>${q.type}</td>
+                <td style="font-size:11px; color:var(--gold);">${tagDisplay}</td>
+                <td>
+                    <button class="btn-ghost" onclick="showEditQuestionModal('${key}')" style="padding:6px 12px; font-size:11px;">แก้ไข</button>
+                    <button class="btn-danger" onclick="deleteQuestion('${key}')" style="padding:6px 12px; font-size:11px;">ลบ</button>
+                </td>
+            </tr>`;
+            selector.innerHTML += `<label style="display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--line-light); margin:0;">
+                <input type="checkbox" name="adminSelectQ" value="${key}" style="width:16px; height:16px; margin:0;"> 
+                <span>${q.text}</span>
+            </label>`;
+        }
+    });
+}
+
+function deleteQuestion(questionId) {
+    showConfirm(
+        "ลบข้อสอบ",
+        "คุณต้องการลบข้อสอบนี้ใช่หรือไม่?\n(ไม่สามารถกู้คืนได้)",
+        () => {
+            showLoading("กำลังลบ...");
+            callAPI("deleteQuestion", { questionId: questionId }, function() {
+                hideLoading();
+                showAlert("✅ ลบสำเร็จ", "ลบข้อสอบเสร็จแล้ว", () => {
+                    loadQuestionsWithActions();
+                });
+            });
+        }
+    );
+}
+
+function showEditQuestionModal(questionId) {
+    editingQuestionId = questionId;
+    let q = allQuestionsData[questionId];
+    
+    document.getElementById("editQText").value = q.text;
+    document.getElementById("editQType").value = q.type;
+    document.getElementById("editQAnswer").value = q.answer;
+    document.getElementById("editQTags").value = (q.tags || []).join(", ");
+    
+    let optArea = document.getElementById("editOptionsArea");
+    optArea.innerHTML = "";
+    
+    if(q.type !== "short_answer") {
+        (q.options || []).forEach((opt, idx) => {
+            optArea.innerHTML += `
+                <div style="margin-bottom:8px;">
+                    <input type="text" value="${opt.text || ""}" id="editOpt${idx}" placeholder="ตัวเลือก ${String.fromCharCode(2710+idx)}">
+                </div>`;
+        });
+    }
+    
+    document.getElementById("editQuestionModal").classList.add("show");
+}
+
+function closeEditQuestionModal() {
+    document.getElementById("editQuestionModal").classList.remove("show");
+    editingQuestionId = null;
+}
+
+function adjustEditOptionForm() {
+    let t = document.getElementById("editQType").value;
+    document.getElementById("editOptionsArea").style.display = (t === "short_answer") ? "none" : "block";
+}
+
+function saveEditQuestion() {
+    let text = document.getElementById("editQText").value;
+    let type = document.getElementById("editQType").value;
+    let answer = document.getElementById("editQAnswer").value;
+    let tags = document.getElementById("editQTags").value.split(",").map(t => t.trim()).filter(t => t);
+    
+    if(!text || !answer) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณากรอกข้อมูลให้ครบถ้วน");
+        return;
+    }
+    
+    let options = [];
+    if(type !== "short_answer") {
+        for(let i = 0; i < 4; i++) {
+            let txt = document.getElementById("editOpt" + i)?.value || "";
+            if(txt) options.push({ text: txt });
+        }
+    }
+    
+    showLoading("กำลังบันทึก...");
+    callAPI("updateQuestion", { 
+        questionId: editingQuestionId, 
+        text: text, 
+        type: type, 
+        answer: answer, 
+        options: options,
+        tags: tags
+    }, function() {
+        hideLoading();
+        closeEditQuestionModal();
+        showAlert("✅ บันทึกสำเร็จ", "แก้ไขข้อสอบเสร็จแล้ว", () => {
+            loadQuestionsWithActions();
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXAM SET MANAGEMENT - EDIT/DELETE/VIEW RESULTS
+// ═══════════════════════════════════════════════════════════════
+
+let editingExamId = null;
+let allExamsData = {};
+
+function loadActiveExamsWithActions() {
+    showLoading("กำลังโหลดชุดข้อสอบ...");
+    callAPI("getExams", {}, function(exams) {
+        hideLoading();
+        allExamsData = exams;
+        let list = document.getElementById("activeExamsList"); 
+        list.innerHTML = "";
+        for(let key in exams) {
+            let ex = exams[key];
+            let tag = ex.tag || "EXAM";
+            list.innerHTML += `<li style="padding:12px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="flex:1;">
+                    <b>${ex.title}</b>
+                    <br>
+                    <span class="exam-badge">${tag}</span>
+                    <br>
+                    <span style="font-size:11px; color:var(--ink-light);">${(ex.questionIds || []).length} ข้อ</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <button class="btn-ghost" onclick="showEditExamModal('${key}')" style="padding:6px 10px; font-size:11px; white-space:nowrap;">แก้ไข</button>
+                    <button class="btn-primary" onclick="showExamResultsDetail('${key}')" style="padding:6px 10px; font-size:11px; white-space:nowrap;">ผล</button>
+                    <button class="btn-danger" onclick="deleteExam('${key}')" style="padding:6px 10px; font-size:11px; white-space:nowrap;">ลบ</button>
+                </div>
+            </li>`;
+        }
+    });
+}
+
+
+function deleteExam(examId) {
+    showConfirm(
+        "ลบชุดข้อสอบ",
+        "คุณต้องการลบชุดข้อสอบนี้ใช่หรือไม่?\n(ข้อสอบยังคงอยู่ในคลัง)",
+        () => {
+            showLoading("กำลังลบ...");
+            callAPI("deleteExam", { examId: examId }, function() {
+                hideLoading();
+                showAlert("✅ ลบสำเร็จ", "ลบชุดข้อสอบเสร็จแล้ว", () => {
+                    loadActiveExamsWithActions();
+                });
+            });
+        }
+    );
+}
+
+
+function showEditExamModal(examId) {
+    editingExamId = examId;
+    
+    showLoading("กำลังโหลดข้อมูล...");
+    callAPI("getExamDetails", { examId: examId }, function(exam) {
+        hideLoading();
+        
+        document.getElementById("editExamTitle").value = exam.title;
+        document.getElementById("editExamTag").value = exam.tag || "JLPT";
+        document.getElementById("editExamDurationType").value = exam.settings.durationType;
+        document.getElementById("editExamDurationValue").value = exam.settings.duration;
+        document.getElementById("editExamRandomize").checked = exam.settings.randomize || false;
+        document.getElementById("editExamShowAnswers").checked = exam.settings.showAnswers !== false;
+        
+        // โหลด checkbox ข้อสอบ
+        showLoading("กำลังโหลดข้อสอบ...");
+        callAPI("getQuestions", {}, function(qs) {
+            hideLoading();
+            let selector = document.getElementById("editExamQSelector");
+            selector.innerHTML = "";
+            
+            for(let key in qs) {
+                let isSelected = (exam.questionIds || []).includes(key) ? "checked" : "";
+                selector.innerHTML += `
+                    <label style="display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--line-light); margin:0;">
+                        <input type="checkbox" name="editSelectQ" value="${key}" ${isSelected} style="width:16px; height:16px; margin:0;"> 
+                        <span style="font-size:12px;">${qs[key].text}</span>
+                    </label>`;
+            }
+        });
+        
+        document.getElementById("editExamModal").classList.add("show");
+    });
+}
+
+
+function closeEditExamModal() {
+    document.getElementById("editExamModal").classList.remove("show");
+    editingExamId = null;
+}
+
+function saveEditExam() {
+    let title = document.getElementById("editExamTitle").value;
+    let tag = document.getElementById("editExamTag").value.trim() || "EXAM";
+    let dType = document.getElementById("editExamDurationType").value;
+    let dVal = document.getElementById("editExamDurationValue").value;
+    let rand = document.getElementById("editExamRandomize").checked;
+    let showAns = document.getElementById("editExamShowAnswers").checked;
+    
+    let checkedBoxes = document.querySelectorAll('input[name="editSelectQ"]:checked');
+    let qids = [];
+    checkedBoxes.forEach(cb => qids.push(cb.value));
+    
+    if(!title || qids.length === 0) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาระบุชื่อและเลือกข้อสอบ");
+        return;
+    }
+    
+    showLoading("กำลังบันทึก...");
+    callAPI("updateExam", {
+        examId: editingExamId,
+        title: title,
+        tag: tag,
+        questionIds: qids,
+        settings: {
+            durationType: dType,
+            duration: dVal,
+            randomize: rand,
+            showAnswers: showAns
+        }
+    }, function() {
+        hideLoading();
+        closeEditExamModal();
+        showAlert("✅ บันทึกสำเร็จ", "แก้ไขชุดข้อสอบเสร็จแล้ว", () => {
+            loadActiveExamsWithActions();
+        });
+    });
+}
+
+
+function showExamResultsDetail(examId) {
+    showLoading("กำลังโหลดผลการสอบ...");
+    callAPI("getExamResultsByExamId", { examId: examId }, function(res) {
+        hideLoading();
+        
+        let html = `<div class="exam-rules" style="max-height: 500px; overflow-y: auto;">
+            <h3 style="margin-bottom: 14px;">📊 ${res.examTitle}</h3>
+            <table style="width:100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: var(--navy); color: white; position: sticky; top: 0;">
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">ผู้สอบ</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">คะแนน</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">วันเวลา</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        (res.list || []).forEach(r => {
+            let badge = r.status === 'Normal' 
+                ? '<span class="badge badge-normal">ปกติ</span>'
+                : '<span class="badge badge-cheat">ทุจริต</span>';
+            html += `<tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">${r.username}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${r.score}/${r.total}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${new Date(r.timestamp).toLocaleString('th-TH')}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${badge}</td>
+            </tr>`;
+        });
+        
+        if(!res.list || res.list.length === 0) {
+            html += `<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--ink-light);">ยังไม่มีผลการสอบ</td></tr>`;
+        }
+        
+        html += `</tbody></table></div>`;
+        
+        document.getElementById("modalTitle").innerText = "📊 ผลการสอบรายชุด";
+        document.getElementById("modalMessage").innerText = "";
+        document.getElementById("modalBody").innerHTML = html;
+        document.getElementById("modalButtons").innerHTML = `
+            <button class="btn-ghost" onclick="closeModal()" style="width: 100%;">ปิด</button>`;
+        document.getElementById("modalOverlay").classList.add("show");
+    });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// แก้ไข saveQuestionManual เพื่อรองรับ Tags
+// ═══════════════════════════════════════════════════════════════
+
+async function saveQuestionManual() {
+    let text = document.getElementById("qText").value;
+    let type = document.getElementById("qType").value;
+    let ans = document.getElementById("qAnswer").value;
+    let audio = document.getElementById("qAudioUrl").value;
+    let tags = document.getElementById("qTags").value.split(",").map(t => t.trim()).filter(t => t);
+    
+    if(!text || !ans) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาป้อนคำถามและเฉลย");
+        return;
+    }
+    
+    showLoading("กำลังบันทึกข้อสอบ...");
+    let mainImgId = "";
+    let mainImgFile = document.getElementById("qImageFile").files[0];
+    if(mainImgFile) mainImgId = await uploadFileBlobToDrive(mainImgFile);
+    
+    let optionsPayload = [];
+    if(type !== "short_answer") {
+        for(let i = 1; i <= 4; i++) {
+            let optTxt = document.getElementById("optText" + i).value;
+            let optFile = document.getElementById("optImg" + i).files[0];
+            let optImgId = optFile ? await uploadFileBlobToDrive(optFile) : "";
+            if(optTxt || optImgId) optionsPayload.push({ text: optTxt, imageDriveId: optImgId });
+        }
+    }
+    
+    callAPI("createQuestion", { 
+        text, 
+        type, 
+        answer: ans, 
+        audioUrl: audio, 
+        imageDriveId: mainImgId, 
+        options: optionsPayload,
+        tags: tags
+    }, function() {
+        hideLoading();
+        showAlert("✅ สำเร็จ", "บันทึกคำถามสำเร็จ", () => {
+            document.getElementById("qText").value = "";
+            document.getElementById("qAnswer").value = "";
+            document.getElementById("qTags").value = "";
+            document.getElementById("qAudioUrl").value = "";
+            document.getElementById("qImageFile").value = "";
+            for(let i = 1; i <= 4; i++) {
+                document.getElementById("optText" + i).value = "";
+                document.getElementById("optImg" + i).value = "";
+            }
+            loadQuestionsWithActions();
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// แก้ไข loadAdminPanelData 
+// ═══════════════════════════════════════════════════════════════
+
+function loadAdminPanelData() {
+    loadQuestionsWithActions();
+    loadActiveExamsWithActions();
+    
+    // โหลดผลสอบทั้งหมด
+    showLoading("กำลังโหลดผลสอบ...");
+    callAPI("getAllResults", {}, function(results) {
+        hideLoading();
+        let tbody = document.getElementById("adminResultsTableBody"); 
+        tbody.innerHTML = "";
+        for(let key in results) {
+            let r = results[key];
+            let badge = r.status === 'Normal' 
+                ? `<span class="badge badge-normal">ปกติ</span>` 
+                : `<span class="badge badge-cheat">ทุจริต</span>`;
+            tbody.innerHTML += `<tr>
+                <td><b>${r.username}</b></td>
+                <td>${r.examTitle}</td>
+                <td style="font-weight:700;">${r.score} / ${r.total}</td>
+                <td>${new Date(r.timestamp).toLocaleString('th-TH')}</td>
+                <td>${badge}</td>
+            </tr>`;
+        }
+    });
+}
 </script>
 </body>
 </html>
