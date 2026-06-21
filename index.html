@@ -476,9 +476,144 @@
         display: none !important;
     }
 }
+ /* ═══ MODAL SYSTEM ═══ */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(26, 39, 68, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+    animation: fadeIn 0.25s ease;
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal-content {
+    background: var(--ivory);
+    border: 2px solid var(--navy);
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    padding: 32px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal-content h2 {
+    font-family: 'Noto Serif JP', serif;
+    color: var(--navy);
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .modal-buttons button {
+    flex: 1;
+  }
+
+  /* Loading Modal */
+  #loadingModal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(26, 39, 68, 0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 11000;
+  }
+
+  #loadingModal.show { display: flex; }
+
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--line);
+    border-top: 4px solid var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Exam Rules */
+  .exam-rules {
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    padding: 16px;
+    margin: 16px 0;
+    max-height: 350px;
+    overflow-y: auto;
+    border-radius: 4px;
+  }
+
+  .exam-rules h3 {
+    font-family: 'Noto Serif JP', serif;
+    color: var(--navy);
+    font-size: 14px;
+    margin-top: 14px;
+    margin-bottom: 8px;
+  }
+
+  .exam-rules .warning {
+    background: #fff3cd;
+    border-left: 4px solid var(--red);
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #664d03;
+  }
+
+  @media (max-width: 600px) {
+    .modal-content {
+      padding: 24px;
+      max-width: 95vw;
+    }
+    .modal-buttons {
+      flex-direction: column;
+    }
+    .modal-buttons button {
+      width: 100%;
+    }
+  }
     </style>
 </head>
 <body>
+    <!-- Modal สำหรับแจ้งข้อมูล -->
+<div id="modalOverlay" class="modal-overlay">
+    <div class="modal-content">
+        <h2 id="modalTitle">—</h2>
+        <p id="modalMessage">—</p>
+        <div id="modalBody"></div>
+        <div class="modal-buttons" id="modalButtons"></div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div id="loadingModal">
+    <div style="text-align: center;">
+        <div class="spinner"></div>
+        <div style="color: var(--ivory); margin-top: 20px;" id="loadingText">
+          กำลังประมวลผล...
+        </div>
+    </div>
+</div>
 
 <div class="container">
     <header id="mainHeader" class="hidden">
@@ -720,427 +855,915 @@
 </div>
 
 <script>
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyaNUql-6Va1GQRGUKGFaeyXMZh0sKkbD5twawzLCmygC6BagCslcIjoa_FEEcTZHYR/exec";
+// ═══════════════════════════════════════════════════════════════
+// EXAMINATION SYSTEM - JAVASCRIPT (ตรงกับ HTML ที่ได้รับ)
+// ═══════════════════════════════════════════════════════════════
 
-    let currentUser = null;
-    let examData = null;
-    let currentQuestionIndex = 0;
-    let userAnswers = {};
-    let cheatLogs = [];
-    let cheatCount = 0;
-    let examInterval = null;
-    let timeLeft = 0;
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyaNUql-6Va1GQRGUKGFaeyXMZh0sKkbD5twawzLCmygC6BagCslcIjoa_FEEcTZHYR/exec";
 
-    window.onload = function() {
-        const session = localStorage.getItem("global_session");
-        if(session) {
-            currentUser = JSON.parse(session);
-            showMainDashboard();
-        }
-    };
+let currentUser = null;
+let examData = null;
+let currentQuestionIndex = 0;
+let userAnswers = {};
+let cheatLogs = [];
+let cheatCount = 0;
+let examInterval = null;
+let timeLeft = 0;
 
-    function callAPI(action, data, callback) {
-        fetch(GAS_API_URL, {
-            method: "POST", mode: "cors",
-            body: JSON.stringify({ action: action, data: data })
-        })
-        .then(res => res.json())
-        .then(res => {
-            if(res.success) callback(res.data);
-            else alert("ระบบแจ้งข้อผิดพลาด: " + res.error);
-        }).catch(() => alert("การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว"));
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 1: MODAL FUNCTIONS (ใหม่ทั้งหมด)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * แสดง Modal แจ้งข้อมูล (Alert)
+ * @param {string} title - ชื่อ
+ * @param {string} message - ข้อความ
+ * @param {function} onClose - callback เมื่อปิด
+ */
+function showAlert(title, message, onClose = null) {
+    document.getElementById("modalTitle").innerText = title;
+    document.getElementById("modalMessage").innerText = message;
+    document.getElementById("modalBody").innerHTML = "";
+    document.getElementById("modalButtons").innerHTML = `
+        <button class="btn-primary" onclick="closeModal()" style="width: 100%;">ตกลง</button>
+    `;
+    document.getElementById("modalOverlay").classList.add("show");
+    if(onClose) window.onCloseModalCallback = onClose;
+}
+
+/**
+ * แสดง Modal ยืนยัน (Confirm)
+ * @param {string} title - ชื่อ
+ * @param {string} message - ข้อความ
+ * @param {function} onConfirm - callback เมื่อยืนยัน
+ * @param {function} onCancel - callback เมื่อยกเลิก
+ */
+function showConfirm(title, message, onConfirm, onCancel = null) {
+    document.getElementById("modalTitle").innerText = title;
+    document.getElementById("modalMessage").innerText = message;
+    document.getElementById("modalBody").innerHTML = "";
+    document.getElementById("modalButtons").innerHTML = `
+        <button class="btn-danger" onclick="closeModal(); if(window.onConfirmCallback) window.onConfirmCallback();">ยืนยัน</button>
+        <button class="btn-ghost" onclick="closeModal(); if(window.onCancelCallback) window.onCancelCallback();">ยกเลิก</button>
+    `;
+    window.onConfirmCallback = onConfirm;
+    window.onCancelCallback = onCancel || (() => {});
+    document.getElementById("modalOverlay").classList.add("show");
+}
+
+/**
+ * แสดง Loading Modal
+ * @param {string} text - ข้อความ Loading
+ */
+function showLoading(text = "กำลังประมวลผล...") {
+    document.getElementById("loadingText").innerText = text;
+    document.getElementById("loadingModal").classList.add("show");
+}
+
+/**
+ * ปิด Loading Modal
+ */
+function hideLoading() {
+    document.getElementById("loadingModal").classList.remove("show");
+}
+
+/**
+ * ปิด Modal
+ */
+function closeModal() {
+    document.getElementById("modalOverlay").classList.remove("show");
+    if(window.onCloseModalCallback) {
+        window.onCloseModalCallback();
+        window.onCloseModalCallback = null;
     }
+}
 
-    function login() {
-        let u = document.getElementById("loginUsername").value;
-        let p = document.getElementById("loginPassword").value;
-        if(!u || !p) return alert("กรุณาระบุชื่อผู้ใช้และรหัสผ่าน");
-        callAPI("login", { username: u, password: p }, function(user) {
-            currentUser = user;
-            localStorage.setItem("global_session", JSON.stringify(user));
-            showMainDashboard();
-        });
-    }
+/**
+ * แสดง Modal กฏการสอบ
+ * @param {string} examTitle - ชื่อชุดข้อสอบ
+ * @param {function} onConfirm - callback เมื่อยืนยัน
+ */
+function showExamRules(examTitle, onConfirm) {
+    const rulesHTML = `
+        <div class="exam-rules">
+            <h3>📋 กฎการสอบออนไลน์</h3>
+            <ul>
+                <li>ต้องอยู่ในหน้าสอบตลอดเวลา ห้ามสลับแท็บหรือออกจาก Fullscreen</li>
+                <li>ห้ามใช้งานเครื่องมืออื่นระหว่างสอบ</li>
+                <li>ห้ามเปิดหน้าจอหลายหน้าพร้อมกัน</li>
+                <li>ห้ามบันทึกหรือคัดลอกข้อมูลข้อสอบ</li>
+                <li>ห้ามสื่อสารกับผู้อื่นระหว่างการสอบ</li>
+                <li>ตัดสิทธิ์สอบในกรณีการทุจริต</li>
+            </ul>
 
-    function register() {
-        let u = document.getElementById("regUsername").value;
-        let p = document.getElementById("regPassword").value;
-        let n = document.getElementById("regName").value;
-        if(!u || !p || !n) return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
-        callAPI("register", { username: u, password: p, name: n }, function(user) {
-            alert("สมัครสมาชิกสำเร็จ ระบบเข้าสู่ระบบอัตโนมัติ");
-            currentUser = user;
-            localStorage.setItem("global_session", JSON.stringify(user));
-            showMainDashboard();
-        });
-    }
+            <h3>⏱️ เวลาสอบ</h3>
+            <ul>
+                <li>ชุดข้อสอบ: <strong>${examTitle}</strong></li>
+                <li>เมื่อเวลาหมด ระบบจะส่งกระดาษคำตอบอัตโนมัติ</li>
+            </ul>
 
-    function logout() {
-        localStorage.removeItem("global_session");
-        currentUser = null;
-        location.reload();
-    }
+            <div class="warning">
+                <strong>⚠️ เตือน:</strong> หากตรวจพบการสลับหน้าจอเกิน 3 ครั้ง ผลสอบจะถูกยกเลิกและจดทะเบียนเป็นทุจริต
+            </div>
 
-    function showMainDashboard() {
-        document.getElementById("authView").classList.add("hidden");
-        document.getElementById("mainHeader").classList.remove("hidden");
-        document.getElementById("userDisplayName").innerText = "ผู้เข้าใช้งาน: " + currentUser.name;
-        document.getElementById("userRoleDisplay").innerText = currentUser.role.toUpperCase();
-        if(currentUser.role === "admin") {
-            document.getElementById("adminView").classList.remove("hidden");
-            loadAdminPanelData();
+            <h3>✅ ความเข้าใจ</h3>
+            <ul>
+                <li>ฉันอ่านและเข้าใจกฎการสอบแล้ว</li>
+                <li>ฉันพร้อมที่จะทำสอบตามกฎที่กำหนด</li>
+            </ul>
+        </div>
+    `;
+
+    document.getElementById("modalTitle").innerText = "📋 กฏการสอบ";
+    document.getElementById("modalMessage").innerText = "";
+    document.getElementById("modalBody").innerHTML = rulesHTML;
+    document.getElementById("modalButtons").innerHTML = `
+        <button class="btn-success" onclick="closeModal(); if(window.onConfirmExamCallback) window.onConfirmExamCallback();" style="flex: 1;">ฉันพร้อมสอบ</button>
+        <button class="btn-ghost" onclick="closeModal();" style="flex: 1;">ยกเลิก</button>
+    `;
+    window.onConfirmExamCallback = onConfirm;
+    document.getElementById("modalOverlay").classList.add("show");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 2: API COMMUNICATION (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * เรียก Google Apps Script API พร้อม Loading
+ * @param {string} action - การกระทำ
+ * @param {object} data - ข้อมูล
+ * @param {function} callback - callback เมื่อสำเร็จ
+ */
+function callAPI(action, data, callback) {
+    showLoading("กำลังดำเนินการ...");
+    fetch(GAS_API_URL, {
+        method: "POST", 
+        mode: "cors",
+        body: JSON.stringify({ action: action, data: data })
+    })
+    .then(res => res.json())
+    .then(res => {
+        hideLoading();
+        if(res.success) {
+            callback(res.data);
         } else {
-            document.getElementById("studentView").classList.remove("hidden");
-            loadStudentDashboardData();
+            showAlert("❌ ข้อผิดพลาด", "ระบบแจ้งข้อผิดพลาด: " + res.error);
         }
-    }
+    })
+    .catch(() => {
+        hideLoading();
+        showAlert("❌ ข้อผิดพลาด", "การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+    });
+}
 
-    // ── ANTI-CHEAT ──
-    function startAntiCheatMonitor() {
-        cheatCount = 0; cheatLogs = [];
-        window.addEventListener("blur", triggerCheatStrike);
-        document.addEventListener("visibilitychange", triggerCheatStrike);
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 3: INITIALIZATION
+// ═══════════════════════════════════════════════════════════════
+
+window.onload = function() {
+    const session = localStorage.getItem("global_session");
+    if(session) {
+        currentUser = JSON.parse(session);
+        showMainDashboard();
     }
-    function stopAntiCheatMonitor() {
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 4: AUTHENTICATION (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * ลงชื่อเข้าใช้ (Login)
+ */
+function login() {
+    let u = document.getElementById("loginUsername").value;
+    let p = document.getElementById("loginPassword").value;
+    
+    if(!u || !p) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาระบุชื่อผู้ใช้และรหัสผ่าน");
+        return;
+    }
+    
+    callAPI("login", { username: u, password: p }, function(user) {
+        currentUser = user;
+        localStorage.setItem("global_session", JSON.stringify(user));
+        showMainDashboard();
+    });
+}
+
+/**
+ * สมัครสมาชิก (Register)
+ */
+function register() {
+    let u = document.getElementById("regUsername").value;
+    let p = document.getElementById("regPassword").value;
+    let n = document.getElementById("regName").value;
+    
+    if(!u || !p || !n) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณากรอกข้อมูลให้ครบถ้วน");
+        return;
+    }
+    
+    callAPI("register", { username: u, password: p, name: n }, function(user) {
+        showAlert("✅ สำเร็จ", "สมัครสมาชิกสำเร็จ ระบบเข้าสู่ระบบอัตโนมัติ", () => {
+            currentUser = user;
+            localStorage.setItem("global_session", JSON.stringify(user));
+            showMainDashboard();
+        });
+    });
+}
+
+/**
+ * ออกจากระบบ (Logout)
+ */
+function logout() {
+    showConfirm(
+        "ยืนยันออกจากระบบ",
+        "คุณต้องการออกจากระบบใช่หรือไม่?",
+        () => {
+            localStorage.removeItem("global_session");
+            currentUser = null;
+            location.reload();
+        }
+    );
+}
+
+/**
+ * แสดง Dashboard หลัก
+ */
+function showMainDashboard() {
+    document.getElementById("authView").classList.add("hidden");
+    document.getElementById("mainHeader").classList.remove("hidden");
+    document.getElementById("userDisplayName").innerText = "ผู้เข้าใช้งาน: " + currentUser.name;
+    document.getElementById("userRoleDisplay").innerText = currentUser.role.toUpperCase();
+    
+    if(currentUser.role === "admin") {
+        document.getElementById("adminView").classList.remove("hidden");
+        loadAdminPanelData();
+    } else {
+        document.getElementById("studentView").classList.remove("hidden");
+        loadStudentDashboardData();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 5: ANTI-CHEAT SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * เริ่มการตรวจจับการทุจริต
+ */
+function startAntiCheatMonitor() {
+    cheatCount = 0; 
+    cheatLogs = [];
+    window.addEventListener("blur", triggerCheatStrike);
+    document.addEventListener("visibilitychange", triggerCheatStrike);
+}
+
+/**
+ * หยุดการตรวจจับการทุจริต
+ */
+function stopAntiCheatMonitor() {
+    window.removeEventListener("blur", triggerCheatStrike);
+    document.removeEventListener("visibilitychange", triggerCheatStrike);
+}
+
+/**
+ * เปิด Anti-Cheat Alert เมื่อตรวจพบการสลับหน้าจอ
+ */
+function triggerCheatStrike() {
+    if (document.visibilityState === 'hidden' || !document.hasFocus()) {
         window.removeEventListener("blur", triggerCheatStrike);
         document.removeEventListener("visibilitychange", triggerCheatStrike);
-    }
-    function triggerCheatStrike() {
-        if (document.visibilityState === 'hidden' || !document.hasFocus()) {
-            window.removeEventListener("blur", triggerCheatStrike);
-            document.removeEventListener("visibilitychange", triggerCheatStrike);
-            cheatCount++;
-            cheatLogs.push({ time: new Date().toLocaleTimeString(), event: `สลับหน้าจอครั้งที่ ${cheatCount}` });
-            let overlay = document.getElementById("cheatOverlay");
-            let title = document.getElementById("cheatAlertTitle");
-            let desc = document.getElementById("cheatAlertDesc");
-            let btn = document.getElementById("cheatActionBtn");
-            overlay.querySelector('.alert-box').classList.add('alert-cheat');
-            if (cheatCount === 1) {
-                title.innerText = "⚠️ ตรวจพบการสลับหน้าจอ (ครั้งที่ 1/3)";
-                desc.innerText = "กรุณาอยู่ในหน้าสอบตลอดเวลา ห้ามสลับแท็บหรือออกจาก Fullscreen หากเกิน 3 ครั้ง ผลสอบจะถูกยกเลิกทันที";
-                btn.innerText = "รับทราบ — กลับเข้าห้องสอบ";
-                btn.style.display = "";
-            } else if (cheatCount === 2) {
-                title.innerText = "⚠️ เตือนครั้งสุดท้าย (ครั้งที่ 2/3)";
-                desc.innerText = "ตรวจพบการออกจากหน้าสอบครั้งที่ 2 หากเกิดขึ้นอีกครั้ง กระดาษคำตอบจะถูกส่งและคะแนนจะเป็น 0";
-                btn.innerText = "กลับเข้าห้องสอบรอบสุดท้าย";
-                btn.style.display = "";
-            } else {
-                title.innerText = "🚨 หมดสิทธิ์สอบ (ทุจริต)";
-                desc.innerText = "ผู้สอบออกจากหน้าสอบเกิน 3 ครั้ง ระบบตัดสิทธิ์และส่งรายงานให้ผู้ดูแลแล้ว";
-                btn.style.display = "none";
-                setTimeout(() => forcedSubmitByCheat(), 3500);
-            }
-            overlay.classList.remove("hidden");
+        cheatCount++;
+        cheatLogs.push({ time: new Date().toLocaleTimeString(), event: `สลับหน้าจอครั้งที่ ${cheatCount}` });
+        
+        let overlay = document.getElementById("cheatOverlay");
+        let title = document.getElementById("cheatAlertTitle");
+        let desc = document.getElementById("cheatAlertDesc");
+        let btn = document.getElementById("cheatActionBtn");
+        overlay.querySelector('.alert-box').classList.add('alert-cheat');
+        
+        if (cheatCount === 1) {
+            title.innerText = "⚠️ ตรวจพบการสลับหน้าจอ (ครั้งที่ 1/3)";
+            desc.innerText = "กรุณาอยู่ในหน้าสอบตลอดเวลา ห้ามสลับแท็บหรือออกจาก Fullscreen หากเกิน 3 ครั้ง ผลสอบจะถูกยกเลิกทันที";
+            btn.innerText = "รับทราบ — กลับเข้าห้องสอบ";
+            btn.style.display = "";
+        } else if (cheatCount === 2) {
+            title.innerText = "⚠️ เตือนครั้งสุดท้าย (ครั้งที่ 2/3)";
+            desc.innerText = "ตรวจพบการออกจากหน้าสอบครั้งที่ 2 หากเกิดขึ้นอีกครั้ง กระดาษคำตอบจะถูกส่งและคะแนนจะเป็น 0";
+            btn.innerText = "กลับเข้าห้องสอบรอบสุดท้าย";
+            btn.style.display = "";
+        } else {
+            title.innerText = "🚨 หมดสิทธิ์สอบ (ทุจริต)";
+            desc.innerText = "ผู้สอบออกจากหน้าสอบเกิน 3 ครั้ง ระบบตัดสิทธิ์และส่งรายงานให้ผู้ดูแลแล้ว";
+            btn.style.display = "none";
+            setTimeout(() => forcedSubmitByCheat(), 3500);
         }
+        
+        overlay.classList.remove("hidden");
     }
-    function resumeExamFromWarning() {
-        document.documentElement.requestFullscreen().then(() => {
-            document.getElementById("cheatOverlay").classList.add("hidden");
-            setTimeout(() => {
-                window.addEventListener("blur", triggerCheatStrike);
-                document.addEventListener("visibilitychange", triggerCheatStrike);
-            }, 300);
-        }).catch(() => alert("กรุณาเปิด Fullscreen ก่อนทำสอบต่อ"));
-    }
+}
 
-    // ── EXAM ENGINE ──
-    function loadStudentDashboardData() {
-        callAPI("getExams", {}, function(exams) {
-            let container = document.getElementById("examsGridContainer");
-            container.innerHTML = "";
-            for(let key in exams) {
-                let ex = exams[key];
-                container.innerHTML += `
-                    <div class="exam-card">
-                        <h4>${ex.title}</h4>
-                        <p style="margin-bottom:14px;">โหมด: ${ex.settings.durationType === 'total' ? 'จับเวลารวม' : 'จับเวลารายข้อ'}</p>
-                        <button class="btn-primary" onclick="enterExamRoom('${key}')" style="width:100%;">เข้าห้องสอบ</button>
-                    </div>`;
+/**
+ * กลับเข้าห้องสอบจากการเตือนทุจริต
+ */
+function resumeExamFromWarning() {
+    document.documentElement.requestFullscreen().then(() => {
+        document.getElementById("cheatOverlay").classList.add("hidden");
+        setTimeout(() => {
+            window.addEventListener("blur", triggerCheatStrike);
+            document.addEventListener("visibilitychange", triggerCheatStrike);
+        }, 300);
+    }).catch(() => {
+        showAlert("⚠️ ข้อผิดพลาด", "กรุณาเปิด Fullscreen ก่อนทำสอบต่อ");
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 6: STUDENT DASHBOARD (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * โหลดข้อมูล Dashboard นักเรียน
+ */
+function loadStudentDashboardData() {
+    showLoading("กำลังโหลดข้อมูลข้อสอบ...");
+    callAPI("getExams", {}, function(exams) {
+        hideLoading();
+        let container = document.getElementById("examsGridContainer");
+        container.innerHTML = "";
+        for(let key in exams) {
+            let ex = exams[key];
+            container.innerHTML += `
+                <div class="exam-card">
+                    <h4>${ex.title}</h4>
+                    <p style="margin-bottom:14px;">โหมด: ${ex.settings.durationType === 'total' ? 'จับเวลารวม' : 'จับเวลารายข้อ'}</p>
+                    <button class="btn-primary" onclick="showEnterExamConfirm('${key}', '${ex.title}')" style="width:100%;">เข้าห้องสอบ</button>
+                </div>`;
+        }
+    });
+    
+    showLoading("กำลังโหลดประวัติการสอบ...");
+    callAPI("getUserHistory", { username: currentUser.username }, function(history) {
+        hideLoading();
+        let tbody = document.getElementById("historyTableBody");
+        tbody.innerHTML = "";
+        history.forEach(h => {
+            let badge = h.status === 'Normal'
+                ? `<span class="badge badge-normal">ปกติ</span>`
+                : `<span class="badge badge-cheat">โมฆะ</span>`;
+            tbody.innerHTML += `<tr><td><b>${h.examTitle}</b></td><td>${new Date(h.timestamp).toLocaleString()}</td><td style="font-weight:700;">${h.score} / ${h.total}</td><td>${badge}</td></tr>`;
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 7: EXAM ENTRY FLOW (ใหม่ + แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * แสดง Modal กฏการสอบ และตามด้วยการยืนยันเข้าห้องสอบ
+ * @param {string} examId - ID ของชุดข้อสอบ
+ * @param {string} examTitle - ชื่อชุดข้อสอบ
+ */
+function showEnterExamConfirm(examId, examTitle) {
+    showExamRules(examTitle, () => {
+        // ขั้นตอนที่ 2: ยืนยันการเข้าห้องสอบ
+        showConfirm(
+            "ยืนยันเข้าห้องสอบ",
+            `คุณต้องการเข้าห้องสอบ "${examTitle}" ใช่หรือไม่?\n\nเมื่อกดยืนยัน ระบบจะเปิด Fullscreen และเริ่มจับเวลา`,
+            () => {
+                enterExamRoom(examId);
             }
-        });
-        callAPI("getUserHistory", { username: currentUser.username }, function(history) {
-            let tbody = document.getElementById("historyTableBody");
-            tbody.innerHTML = "";
-            history.forEach(h => {
-                let badge = h.status === 'Normal'
-                    ? `<span class="badge badge-normal">ปกติ</span>`
-                    : `<span class="badge badge-cheat">โมฆะ</span>`;
-                tbody.innerHTML += `<tr><td><b>${h.examTitle}</b></td><td>${new Date(h.timestamp).toLocaleString()}</td><td style="font-weight:700;">${h.score} / ${h.total}</td><td>${badge}</td></tr>`;
-            });
-        });
-    }
+        );
+    });
+}
 
-    function enterExamRoom(examId) {
-    if(!confirm("ยืนยันเข้าห้องสอบ?")) return;
-
+/**
+ * เข้าห้องสอบ
+ * @param {string} examId - ID ของชุดข้อสอบ
+ */
+function enterExamRoom(examId) {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+    showLoading("กำลังเตรียมห้องสอบ...");
     callAPI("getExamQuestions", { examId: examId }, function(data) {
-        examData = data; 
+        hideLoading();
+        examData = data;
         examData.examId = examId;
-        currentQuestionIndex = 0; 
+        currentQuestionIndex = 0;
         userAnswers = {};
 
         document.getElementById("studentView").classList.add("hidden");
         document.getElementById("examActiveView").classList.remove("hidden");
         document.getElementById("activeExamTitle").innerText = examData.title;
 
-        // ================== ปรับสำหรับมือถือ ==================
+        // ════ ปรับสำหรับมือถือ ════
         if (!isMobile) {
             document.documentElement.requestFullscreen().catch(() => {});
-            startAntiCheatMonitor();        // เปิด Anti-Cheat เฉพาะคอม
+            startAntiCheatMonitor();
         } else {
             console.log("📱 มือถือโหมด - Anti-Cheat ถูกปิด");
-            // ปิด Anti-Cheat บนมือถือทั้งหมด
             stopAntiCheatMonitor();
             document.getElementById("cheatOverlay").style.display = "none";
         }
-        // ====================================================
+        // ═══════════════════════
 
         initExamTimelineTimer();
         renderRoomQuestion();
     });
 }
 
-    function initExamTimelineTimer() {
-        if(examInterval) clearInterval(examInterval);
-        if(examData.settings.durationType === "total") {
-            timeLeft = parseInt(examData.settings.duration) * 60;
-            examInterval = setInterval(() => {
-                timeLeft--;
-                let m = Math.floor(timeLeft/60).toString().padStart(2,'0');
-                let s = (timeLeft%60).toString().padStart(2,'0');
-                let el = document.getElementById("examTimer");
-                el.innerText = `เวลา ${m}:${s}`;
-                if(timeLeft <= 60) el.classList.add('urgent');
-                if(timeLeft <= 0) autoSubmitExamFinal(false);
-            }, 1000);
-        } else { resetPerQuestionTimer(); }
-    }
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 8: EXAM TIMER
+// ═══════════════════════════════════════════════════════════════
 
-    function resetPerQuestionTimer() {
-        if(examData.settings.durationType !== "per_question") return;
-        if(examInterval) clearInterval(examInterval);
-        timeLeft = parseInt(examData.settings.duration);
+/**
+ * เริ่มจับเวลาสอบ
+ */
+function initExamTimelineTimer() {
+    if(examInterval) clearInterval(examInterval);
+    if(examData.settings.durationType === "total") {
+        timeLeft = parseInt(examData.settings.duration) * 60;
         examInterval = setInterval(() => {
-            document.getElementById("examTimer").innerText = `เวลาข้อนี้: ${timeLeft} วิ`;
-            if(timeLeft <= 5) document.getElementById("examTimer").classList.add('urgent');
             timeLeft--;
-            if(timeLeft < 0) { clearInterval(examInterval); navigateQuestion(1); }
+            let m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+            let s = (timeLeft%60).toString().padStart(2,'0');
+            let el = document.getElementById("examTimer");
+            el.innerText = `เวลา ${m}:${s}`;
+            if(timeLeft <= 60) el.classList.add('urgent');
+            if(timeLeft <= 0) autoSubmitExamFinal(false);
         }, 1000);
+    } else { 
+        resetPerQuestionTimer(); 
+    }
+}
+
+/**
+ * รีเซ็ตจับเวลารายข้อ
+ */
+function resetPerQuestionTimer() {
+    if(examData.settings.durationType !== "per_question") return;
+    if(examInterval) clearInterval(examInterval);
+    timeLeft = parseInt(examData.settings.duration);
+    examInterval = setInterval(() => {
+        document.getElementById("examTimer").innerText = `เวลาข้อนี้: ${timeLeft} วิ`;
+        if(timeLeft <= 5) document.getElementById("examTimer").classList.add('urgent');
+        timeLeft--;
+        if(timeLeft < 0) { 
+            clearInterval(examInterval); 
+            navigateQuestion(1); 
+        }
+    }, 1000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 9: EXAM QUESTION RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * เรนเดอร์คำถามข้อสอบ
+ */
+function renderRoomQuestion() {
+    let q = examData.questions[currentQuestionIndex];
+    let wrapper = document.getElementById("questionWrapper");
+    wrapper.innerHTML = `
+        <span class="q-number">${currentQuestionIndex + 1} / ${examData.questions.length}</span>
+        <h4>${q.text}</h4>
+        <div id="mediaBox"></div>
+        <div id="choiceBox" style="margin-top:18px;"></div>`;
+
+    let mediaBox = document.getElementById("mediaBox");
+    if(q.audioUrl) mediaBox.innerHTML += `<iframe src="${q.audioUrl}" class="audio-frame"></iframe>`;
+    if(q.imageDriveId) {
+        callAPI("fetchDriveImageBase64", { fileId: q.imageDriveId }, function(base64) {
+            if(base64) mediaBox.innerHTML += `<img src="${base64}" class="question-img">`;
+        });
     }
 
-    function renderRoomQuestion() {
-        let q = examData.questions[currentQuestionIndex];
-        let wrapper = document.getElementById("questionWrapper");
-        wrapper.innerHTML = `
-            <span class="q-number">${currentQuestionIndex + 1} / ${examData.questions.length}</span>
-            <h4>${q.text}</h4>
-            <div id="mediaBox"></div>
-            <div id="choiceBox" style="margin-top:18px;"></div>`;
+    let choiceBox = document.getElementById("choiceBox");
+    if(q.type === "multiple_choice") {
+        q.options.forEach(opt => {
+            let uid = 'io_' + Math.random().toString(36).substr(2,5);
+            let checked = userAnswers[q.id] === opt.text ? 'checked' : '';
+            let block = document.createElement('div');
+            block.className = "option-item";
+            block.innerHTML = `<div class="option-row-layout"><input type="radio" name="r_${q.id}" ${checked} onclick="saveSelectionRadio('${q.id}','${opt.text}')"><label>${opt.text}</label></div><div id="${uid}"></div>`;
+            choiceBox.appendChild(block);
+            if(opt.imageDriveId) {
+                callAPI("fetchDriveImageBase64", { fileId: opt.imageDriveId }, function(b64) {
+                    if(b64) document.getElementById(uid).innerHTML = `<img src="${b64}" class="option-img">`;
+                });
+            }
+        });
+    } else if(q.type === "multiple_select") {
+        let sel = userAnswers[q.id] || [];
+        q.options.forEach(opt => {
+            let uid = 'io_' + Math.random().toString(36).substr(2,5);
+            let checked = sel.includes(opt.text) ? 'checked' : '';
+            let block = document.createElement('div');
+            block.className = "option-item";
+            block.innerHTML = `<div class="option-row-layout"><input type="checkbox" ${checked} onchange="saveSelectionCheckbox('${q.id}','${opt.text}',this.checked)"><label>${opt.text}</label></div><div id="${uid}"></div>`;
+            choiceBox.appendChild(block);
+            if(opt.imageDriveId) {
+                callAPI("fetchDriveImageBase64", { fileId: opt.imageDriveId }, function(b64) {
+                    if(b64) document.getElementById(uid).innerHTML = `<img src="${b64}" class="option-img">`;
+                });
+            }
+        });
+    } else {
+        let val = userAnswers[q.id] || "";
+        choiceBox.innerHTML = `<input type="text" id="sa_${q.id}" oninput="saveSelectionShortAnswer('${q.id}',this.value)" value="${val}" placeholder="พิมพ์คำตอบที่นี่...">`;
+    }
 
-        let mediaBox = document.getElementById("mediaBox");
-        if(q.audioUrl) mediaBox.innerHTML += `<iframe src="${q.audioUrl}" class="audio-frame"></iframe>`;
-        if(q.imageDriveId) {
-            callAPI("fetchDriveImageBase64", { fileId: q.imageDriveId }, function(base64) {
-                if(base64) mediaBox.innerHTML += `<img src="${base64}" class="question-img">`;
-            });
-        }
+    document.getElementById("prevBtn").style.display = (currentQuestionIndex === 0 || examData.settings.durationType === "per_question") ? "none" : "block";
+    document.getElementById("nextBtn").innerText = (currentQuestionIndex === examData.questions.length-1) ? "ส่งกระดาษคำตอบ" : "ถัดไป →";
+}
 
-        let choiceBox = document.getElementById("choiceBox");
-        if(q.type === "multiple_choice") {
-            q.options.forEach(opt => {
-                let uid = 'io_' + Math.random().toString(36).substr(2,5);
-                let checked = userAnswers[q.id] === opt.text ? 'checked' : '';
-                let block = document.createElement('div');
-                block.className = "option-item";
-                block.innerHTML = `<div class="option-row-layout"><input type="radio" name="r_${q.id}" ${checked} onclick="saveSelectionRadio('${q.id}','${opt.text}')"><label>${opt.text}</label></div><div id="${uid}"></div>`;
-                choiceBox.appendChild(block);
-                if(opt.imageDriveId) callAPI("fetchDriveImageBase64",{fileId:opt.imageDriveId},function(b64){if(b64)document.getElementById(uid).innerHTML=`<img src="${b64}" class="option-img">`;});
-            });
-        } else if(q.type === "multiple_select") {
-            let sel = userAnswers[q.id] || [];
-            q.options.forEach(opt => {
-                let uid = 'io_' + Math.random().toString(36).substr(2,5);
-                let checked = sel.includes(opt.text) ? 'checked' : '';
-                let block = document.createElement('div');
-                block.className = "option-item";
-                block.innerHTML = `<div class="option-row-layout"><input type="checkbox" ${checked} onchange="saveSelectionCheckbox('${q.id}','${opt.text}',this.checked)"><label>${opt.text}</label></div><div id="${uid}"></div>`;
-                choiceBox.appendChild(block);
-                if(opt.imageDriveId) callAPI("fetchDriveImageBase64",{fileId:opt.imageDriveId},function(b64){if(b64)document.getElementById(uid).innerHTML=`<img src="${b64}" class="option-img">`;});
-            });
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 10: ANSWER SELECTION
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * บันทึกเลือกปรนัย (Radio Button)
+ * @param {string} qid - ID คำถาม
+ * @param {string} val - ค่าที่เลือก
+ */
+function saveSelectionRadio(qid, val) { 
+    userAnswers[qid] = val; 
+}
+
+/**
+ * บันทึกเลือกปรนัยหลายตัวเลือก (Checkbox)
+ * @param {string} qid - ID คำถาม
+ * @param {string} val - ค่าที่เลือก
+ * @param {boolean} status - สถานะ (checked/unchecked)
+ */
+function saveSelectionCheckbox(qid, val, status) {
+    if(!userAnswers[qid]) userAnswers[qid] = [];
+    if(status) { 
+        if(!userAnswers[qid].includes(val)) userAnswers[qid].push(val); 
+    }
+    else { 
+        userAnswers[qid] = userAnswers[qid].filter(v => v !== val); 
+    }
+}
+
+/**
+ * บันทึกคำตอบอัตนัย (Text Input)
+ * @param {string} qid - ID คำถาม
+ * @param {string} val - คำตอบที่พิมพ์
+ */
+function saveSelectionShortAnswer(qid, val) { 
+    userAnswers[qid] = val; 
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 11: EXAM NAVIGATION (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * นำทางไปข้อคำถามถัดไป/ก่อนหน้า
+ * @param {number} direction - ทิศทาง (-1 ย้อนกลับ, 1 ถัดไป)
+ */
+function navigateQuestion(direction) {
+    currentQuestionIndex += direction;
+    if(currentQuestionIndex >= examData.questions.length) {
+        showConfirm(
+            "ยืนยันส่งกระดาษคำตอบ",
+            "คุณต้องการส่งกระดาษคำตอบใช่หรือไม่?\n\nไม่สามารถแก้ไขคำตอบได้หลังส่ง",
+            () => {
+                autoSubmitExamFinal(false);
+            }
+        );
+        currentQuestionIndex--;
+    } else { 
+        renderRoomQuestion(); 
+        resetPerQuestionTimer(); 
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 12: EXAM SUBMISSION (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * ส่งข้อสอบและบันทึกผลการสอบ
+ * @param {boolean} isPenalized - คะแนนถูกปรับหรือไม่
+ */
+function autoSubmitExamFinal(isPenalized) {
+    if(examInterval) clearInterval(examInterval);
+    stopAntiCheatMonitor();
+    
+    showLoading("กำลังส่งกระดาษคำตอบ...");
+    callAPI("submitExam", { 
+        username: currentUser.username, 
+        examId: examData.examId, 
+        answers: userAnswers, 
+        logs: cheatLogs, 
+        isPenalized: isPenalized 
+    }, function(res) {
+        hideLoading();
+        
+        if(res.status === "Penalized") {
+            showAlert(
+                "📋 ผลการสอบ", 
+                `ส่งคำตอบแล้ว\n\nเนื่องจากตรวจพบการทุจริต คะแนนจึงถูกปรับเป็น 0`, 
+                () => {
+                    document.getElementById("cheatOverlay").classList.add("hidden");
+                    document.exitFullscreen().catch(() => {});
+                    document.getElementById("examActiveView").classList.add("hidden");
+                    showMainDashboard();
+                }
+            );
         } else {
-            let val = userAnswers[q.id] || "";
-            choiceBox.innerHTML = `<input type="text" id="sa_${q.id}" oninput="saveSelectionShortAnswer('${q.id}',this.value)" value="${val}" placeholder="พิมพ์คำตอบที่นี่...">`;
+            showAlert(
+                "✅ ส่งข้อสอบสำเร็จ", 
+                `คะแนน: ${res.score} / ${res.total}\n\nขอบคุณที่ใช้งานระบบสอบออนไลน์ของเรา`, 
+                () => {
+                    document.getElementById("cheatOverlay").classList.add("hidden");
+                    document.exitFullscreen().catch(() => {});
+                    document.getElementById("examActiveView").classList.add("hidden");
+                    showMainDashboard();
+                }
+            );
         }
+    });
+}
 
-        document.getElementById("prevBtn").style.display = (currentQuestionIndex === 0 || examData.settings.durationType === "per_question") ? "none" : "block";
-        document.getElementById("nextBtn").innerText = (currentQuestionIndex === examData.questions.length-1) ? "ส่งกระดาษคำตอบ" : "ถัดไป →";
-    }
+/**
+ * ส่งข้อสอบฝ่ายเดียว (ตรวจพบทุจริต)
+ */
+function forcedSubmitByCheat() { 
+    autoSubmitExamFinal(true); 
+}
 
-    function saveSelectionRadio(qid, val) { userAnswers[qid] = val; }
-    function saveSelectionCheckbox(qid, val, status) {
-        if(!userAnswers[qid]) userAnswers[qid] = [];
-        if(status) { if(!userAnswers[qid].includes(val)) userAnswers[qid].push(val); }
-        else { userAnswers[qid] = userAnswers[qid].filter(v=>v!==val); }
-    }
-    function saveSelectionShortAnswer(qid, val) { userAnswers[qid] = val; }
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 13: ADMIN PANEL (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
 
-    function navigateQuestion(direction) {
-        currentQuestionIndex += direction;
-        if(currentQuestionIndex >= examData.questions.length) {
-            if(confirm("ยืนยันส่งกระดาษคำตอบ?")) autoSubmitExamFinal(false);
-            else currentQuestionIndex--;
-        } else { renderRoomQuestion(); resetPerQuestionTimer(); }
-    }
-    function forcedSubmitByCheat() { autoSubmitExamFinal(true); }
-    function autoSubmitExamFinal(isPenalized) {
-        if(examInterval) clearInterval(examInterval);
-        stopAntiCheatMonitor();
-        callAPI("submitExam", { username: currentUser.username, examId: examData.examId, answers: userAnswers, logs: cheatLogs, isPenalized: isPenalized }, function(res) {
-            if(res.status === "Penalized") alert("ส่งคำตอบแล้ว: คะแนนถูกปรับเป็น 0 เนื่องจากทุจริต");
-            else alert(`ส่งข้อสอบสำเร็จ คะแนน: ${res.score} / ${res.total}`);
-            document.getElementById("cheatOverlay").classList.add("hidden");
-            document.exitFullscreen().catch(()=>{});
-            document.getElementById("examActiveView").classList.add("hidden");
-            showMainDashboard();
-        });
-    }
-
-    // ── ADMIN ──
-    function loadAdminPanelData() {
-        callAPI("getQuestions", {}, function(qs) {
-            let tbody = document.getElementById("qPoolTableBody");
-            let selector = document.getElementById("examQCheckboxSelector");
-            tbody.innerHTML = ""; selector.innerHTML = "";
-            for(let key in qs) {
-                tbody.innerHTML += `<tr><td>${qs[key].text}</td><td>${qs[key].type}</td></tr>`;
-                selector.innerHTML += `<label><input type="checkbox" name="adminSelectQ" value="${key}"> ${qs[key].text}</label>`;
-            }
-        });
-        callAPI("getExams", {}, function(exams) {
-            let list = document.getElementById("activeExamsList"); list.innerHTML = "";
-            for(let key in exams) list.innerHTML += `<li>📂 <b>${exams[key].title}</b> (${exams[key].questionIds ? exams[key].questionIds.length : 0} ข้อ)</li>`;
-        });
-        callAPI("getAllResults", {}, function(results) {
-            let tbody = document.getElementById("adminResultsTableBody"); tbody.innerHTML = "";
-            for(let key in results) {
-                let r = results[key];
-                let badge = r.status === 'Normal' ? `<span class="badge badge-normal">ปกติ</span>` : `<span class="badge badge-cheat">ทุจริต</span>`;
-                tbody.innerHTML += `<tr><td><b>${r.username}</b></td><td>${r.examTitle}</td><td style="font-weight:700;">${r.score} / ${r.total}</td><td>${new Date(r.timestamp).toLocaleString()}</td><td>${badge}</td></tr>`;
-            }
-        });
-    }
-
-    async function saveQuestionManual() {
-        let text = document.getElementById("qText").value;
-        let type = document.getElementById("qType").value;
-        let ans = document.getElementById("qAnswer").value;
-        let audio = document.getElementById("qAudioUrl").value;
-        if(!text || !ans) return alert("กรุณาป้อนคำถามและเฉลย");
-        let mainImgId = "";
-        let mainImgFile = document.getElementById("qImageFile").files[0];
-        if(mainImgFile) mainImgId = await uploadFileBlobToDrive(mainImgFile);
-        let optionsPayload = [];
-        if(type !== "short_answer") {
-            for(let i=1; i<=4; i++) {
-                let optTxt = document.getElementById("optText"+i).value;
-                let optFile = document.getElementById("optImg"+i).files[0];
-                let optImgId = optFile ? await uploadFileBlobToDrive(optFile) : "";
-                if(optTxt || optImgId) optionsPayload.push({ text: optTxt, imageDriveId: optImgId });
-            }
+/**
+ * โหลดข้อมูล Admin Panel
+ */
+function loadAdminPanelData() {
+    // โหลดคลังข้อสอบ
+    showLoading("กำลังโหลดข้อมูลคลัง...");
+    callAPI("getQuestions", {}, function(qs) {
+        hideLoading();
+        let tbody = document.getElementById("qPoolTableBody");
+        let selector = document.getElementById("examQCheckboxSelector");
+        tbody.innerHTML = ""; 
+        selector.innerHTML = "";
+        for(let key in qs) {
+            tbody.innerHTML += `<tr><td>${qs[key].text}</td><td>${qs[key].type}</td></tr>`;
+            selector.innerHTML += `<label><input type="checkbox" name="adminSelectQ" value="${key}"> ${qs[key].text}</label>`;
         }
-        callAPI("createQuestion", { text, type, answer: ans, audioUrl: audio, imageDriveId: mainImgId, options: optionsPayload }, function() {
-            alert("บันทึกคำถามสำเร็จ"); location.reload();
-        });
+    });
+
+    // โหลดชุดข้อสอบที่เปิด
+    showLoading("กำลังโหลดชุดข้อสอบ...");
+    callAPI("getExams", {}, function(exams) {
+        hideLoading();
+        let list = document.getElementById("activeExamsList"); 
+        list.innerHTML = "";
+        for(let key in exams) {
+            list.innerHTML += `<li>📂 <b>${exams[key].title}</b> (${exams[key].questionIds ? exams[key].questionIds.length : 0} ข้อ)</li>`;
+        }
+    });
+
+    // โหลดผลสอบทั้งหมด
+    showLoading("กำลังโหลดผลสอบ...");
+    callAPI("getAllResults", {}, function(results) {
+        hideLoading();
+        let tbody = document.getElementById("adminResultsTableBody"); 
+        tbody.innerHTML = "";
+        for(let key in results) {
+            let r = results[key];
+            let badge = r.status === 'Normal' 
+                ? `<span class="badge badge-normal">ปกติ</span>` 
+                : `<span class="badge badge-cheat">ทุจริต</span>`;
+            tbody.innerHTML += `<tr><td><b>${r.username}</b></td><td>${r.examTitle}</td><td style="font-weight:700;">${r.score} / ${r.total}</td><td>${new Date(r.timestamp).toLocaleString()}</td><td>${badge}</td></tr>`;
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 14: QUESTION MANAGEMENT (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * บันทึกข้อสอบเดี่ยว
+ */
+async function saveQuestionManual() {
+    let text = document.getElementById("qText").value;
+    let type = document.getElementById("qType").value;
+    let ans = document.getElementById("qAnswer").value;
+    let audio = document.getElementById("qAudioUrl").value;
+    
+    if(!text || !ans) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาป้อนคำถามและเฉลย");
+        return;
     }
-
-    function uploadFileBlobToDrive(file) {
-        return new Promise((resolve) => {
-            let reader = new FileReader();
-            reader.onload = function(e) {
-                let base64Str = e.target.result.split(",")[1];
-                callAPI("uploadImage", { base64: base64Str, fileName: file.name, mimeType: file.type }, function(res) { resolve(res.fileId); });
-            };
-            reader.readAsDataURL(file);
-        });
+    
+    showLoading("กำลังบันทึกข้อสอบ...");
+    let mainImgId = "";
+    let mainImgFile = document.getElementById("qImageFile").files[0];
+    if(mainImgFile) mainImgId = await uploadFileBlobToDrive(mainImgFile);
+    
+    let optionsPayload = [];
+    if(type !== "short_answer") {
+        for(let i = 1; i <= 4; i++) {
+            let optTxt = document.getElementById("optText" + i).value;
+            let optFile = document.getElementById("optImg" + i).files[0];
+            let optImgId = optFile ? await uploadFileBlobToDrive(optFile) : "";
+            if(optTxt || optImgId) optionsPayload.push({ text: optTxt, imageDriveId: optImgId });
+        }
     }
+    
+    callAPI("createQuestion", { 
+        text, 
+        type, 
+        answer: ans, 
+        audioUrl: audio, 
+        imageDriveId: mainImgId, 
+        options: optionsPayload 
+    }, function() {
+        hideLoading();
+        showAlert("✅ สำเร็จ", "บันทึกคำถามสำเร็จ", () => {
+            location.reload();
+        });
+    });
+}
 
-    // ── ส่วนที่แก้ไข: ฟังก์ชันสร้างข้อสอบจาก JSON แบบรวดเดียว ──
-    function createExamFromJSON() {
-        let title = document.getElementById("bulkExamTitle").value;
-        let dType = document.getElementById("bulkExamDurationType").value;
-        let dVal = document.getElementById("bulkExamDurationValue").value;
-        let rand = document.getElementById("bulkExamRandomize").checked;
-        let showAns = document.getElementById("bulkExamShowAnswers").checked;
-        let rawStr = document.getElementById("jsonPasteArea").value;
-
-        if(!title) return alert("กรุณาระบุชื่อชุดข้อสอบ");
-        if(!rawStr) return alert("กรุณาใส่ข้อมูล JSON");
-
-        try {
-            let parsed = JSON.parse(rawStr);
-            // รองรับทั้งแบบโยน Array เพียวๆ หรือแบบหุ้มด้วย { "questions": [...] }
-            let questionsArray = Array.isArray(parsed) ? parsed : parsed.questions;
-
-            if (!questionsArray || questionsArray.length === 0) {
-                return alert("ไม่พบข้อมูลข้อสอบใน JSON");
-            }
-
-            let payload = {
-                title: title,
-                settings: {
-                    durationType: dType,
-                    duration: dVal,
-                    randomize: rand,
-                    showAnswers: showAns
-                },
-                questions: questionsArray
-            };
-
-            callAPI("createExamWithNewQuestions", payload, function(res) {
-                alert(`อัปโหลดข้อสอบและสร้างชุดข้อสอบสำเร็จ จำนวน ${questionsArray.length} ข้อ`);
-                loadAdminPanelData();
-                document.getElementById("bulkExamTitle").value = "";
-                document.getElementById("jsonPasteArea").value = "";
+/**
+ * อัปโหลดไฟล์รูปภาพไปที่ Drive
+ * @param {File} file - ไฟล์ที่อัปโหลด
+ * @returns {Promise<string>} Promise ที่คืน FileID
+ */
+function uploadFileBlobToDrive(file) {
+    return new Promise((resolve) => {
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let base64Str = e.target.result.split(",")[1];
+            callAPI("uploadImage", { 
+                base64: base64Str, 
+                fileName: file.name, 
+                mimeType: file.type 
+            }, function(res) { 
+                resolve(res.fileId); 
             });
-        } catch(e) { 
-            alert("รูปแบบ JSON ไม่ถูกต้อง"); 
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 15: EXAM CREATION FROM JSON (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * สร้างชุดข้อสอบจาก JSON และเปิดสอบทันที
+ */
+function createExamFromJSON() {
+    let title = document.getElementById("bulkExamTitle").value;
+    let dType = document.getElementById("bulkExamDurationType").value;
+    let dVal = document.getElementById("bulkExamDurationValue").value;
+    let rand = document.getElementById("bulkExamRandomize").checked;
+    let showAns = document.getElementById("bulkExamShowAnswers").checked;
+    let rawStr = document.getElementById("jsonPasteArea").value;
+
+    if(!title) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาระบุชื่อชุดข้อสอบ");
+        return;
+    }
+    
+    if(!rawStr) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาใส่ข้อมูล JSON");
+        return;
+    }
+
+    try {
+        let parsed = JSON.parse(rawStr);
+        let questionsArray = Array.isArray(parsed) ? parsed : parsed.questions;
+
+        if (!questionsArray || questionsArray.length === 0) {
+            showAlert("⚠️ ข้อมูลไม่ถูกต้อง", "ไม่พบข้อมูลข้อสอบใน JSON");
+            return;
         }
-    }
 
-    function saveExamSet() {
-        let title = document.getElementById("examTitleInput").value;
-        let dType = document.getElementById("examDurationType").value;
-        let dVal = document.getElementById("examDurationValue").value;
-        let rand = document.getElementById("examRandomize").checked;
-        let showAns = document.getElementById("examShowAnswers").checked;
-        let checkedBoxes = document.querySelectorAll('input[name="adminSelectQ"]:checked');
-        let qids = []; checkedBoxes.forEach(cb => qids.push(cb.value));
-        if(!title || qids.length === 0) return alert("กรุณาระบุชื่อและเลือกข้อสอบอย่างน้อย 1 ข้อ");
-        callAPI("createExam", { title, questionIds: qids, settings: { durationType: dType, duration: dVal, randomize: rand, showAnswers: showAns } }, function() {
-            alert("สร้างชุดข้อสอบสำเร็จ"); loadAdminPanelData();
+        let payload = {
+            title: title,
+            settings: {
+                durationType: dType,
+                duration: dVal,
+                randomize: rand,
+                showAnswers: showAns
+            },
+            questions: questionsArray
+        };
+
+        showLoading("กำลังอัปโหลดข้อสอบ...");
+        callAPI("createExamWithNewQuestions", payload, function(res) {
+            hideLoading();
+            showAlert(
+                "✅ สำเร็จ", 
+                `อัปโหลดข้อสอบและสร้างชุดข้อสอบสำเร็จ จำนวน ${questionsArray.length} ข้อ`, 
+                () => {
+                    loadAdminPanelData();
+                    document.getElementById("bulkExamTitle").value = "";
+                    document.getElementById("jsonPasteArea").value = "";
+                }
+            );
         });
+    } catch(e) {
+        hideLoading();
+        showAlert("❌ ข้อมูล JSON ไม่ถูกต้อง", "กรุณาตรวจสอบรูปแบบ JSON ของคุณ");
     }
+}
 
-    function adjustOptionFormState() {
-        let t = document.getElementById("qType").value;
-        document.getElementById("optionsBuilderArea").style.display = (t === "short_answer") ? "none" : "block";
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 16: EXAM SET CREATION (แก้ไข)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * สร้างชุดข้อสอบจากคลัง
+ */
+function saveExamSet() {
+    let title = document.getElementById("examTitleInput").value;
+    let dType = document.getElementById("examDurationType").value;
+    let dVal = document.getElementById("examDurationValue").value;
+    let rand = document.getElementById("examRandomize").checked;
+    let showAns = document.getElementById("examShowAnswers").checked;
+    let checkedBoxes = document.querySelectorAll('input[name="adminSelectQ"]:checked');
+    let qids = []; 
+    checkedBoxes.forEach(cb => qids.push(cb.value));
+    
+    if(!title || qids.length === 0) {
+        showAlert("⚠️ ข้อมูลไม่ครบ", "กรุณาระบุชื่อและเลือกข้อสอบอย่างน้อย 1 ข้อ");
+        return;
     }
-    function switchAdminTab(tabId) {
-        document.querySelectorAll('#adminView .sub-view').forEach(v => v.classList.add("hidden"));
-        document.querySelectorAll('#adminView .tab-btn').forEach(b => b.classList.remove("active"));
-        document.getElementById(tabId).classList.remove("hidden");
-        event.target.classList.add("active");
-    }
-    function switchStudentTab(tabId) {
-        document.querySelectorAll('#studentView .sub-view').forEach(v => v.classList.add("hidden"));
-        document.querySelectorAll('#studentView .tab-btn').forEach(b => b.classList.remove("active"));
-        document.getElementById(tabId).classList.remove("hidden");
-        event.target.classList.add("active");
-    }
+    
+    showLoading("กำลังสร้างชุดข้อสอบ...");
+    callAPI("createExam", { 
+        title, 
+        questionIds: qids, 
+        settings: { 
+            durationType: dType, 
+            duration: dVal, 
+            randomize: rand, 
+            showAnswers: showAns 
+        } 
+    }, function() {
+        hideLoading();
+        showAlert(
+            "✅ สำเร็จ", 
+            "สร้างชุดข้อสอบสำเร็จ", 
+            () => {
+                loadAdminPanelData();
+            }
+        );
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ส่วนที่ 17: UI STATE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * ปรับสถานะฟอร์มตัวเลือกตามประเภทข้อสอบ
+ */
+function adjustOptionFormState() {
+    let t = document.getElementById("qType").value;
+    document.getElementById("optionsBuilderArea").style.display = (t === "short_answer") ? "none" : "block";
+}
+
+/**
+ * สลับแท็บใน Admin Panel
+ * @param {string} tabId - ID ของแท็บ
+ */
+function switchAdminTab(tabId) {
+    document.querySelectorAll('#adminView .sub-view').forEach(v => v.classList.add("hidden"));
+    document.querySelectorAll('#adminView .tab-btn').forEach(b => b.classList.remove("active"));
+    document.getElementById(tabId).classList.remove("hidden");
+    event.target.classList.add("active");
+}
+
+/**
+ * สลับแท็บใน Student View
+ * @param {string} tabId - ID ของแท็บ
+ */
+function switchStudentTab(tabId) {
+    document.querySelectorAll('#studentView .sub-view').forEach(v => v.classList.add("hidden"));
+    document.querySelectorAll('#studentView .tab-btn').forEach(b => b.classList.remove("active"));
+    document.getElementById(tabId).classList.remove("hidden");
+    event.target.classList.add("active");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// จบไฟล์ JavaScript
+// ═══════════════════════════════════════════════════════════════
 </script>
 </body>
 </html>
