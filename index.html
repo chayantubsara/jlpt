@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>ระบบสอบออนไลน์และคลังข้อสอบ Global</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -380,6 +380,102 @@
             header#mainHeader { padding: 12px 16px 0; }
             .exam-nav { flex-direction: column; }
         }
+          /* ปรับให้มือถือใช้งานได้ดีขึ้น */
+  body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+  }
+
+  #examActiveView, .jlpt-inner {
+      min-height: 100vh;
+      height: 100vh;
+      overflow-y: auto;
+  }
+
+  /* ผ่อนปรน Fullscreen บนมือถือ */
+  @media (max-width: 768px) {
+      .exam-nav button {
+          padding: 14px 20px;
+          font-size: 15px;
+      }
+  }
+  /* === ปรับให้มือถือใช้งานได้จริง === */
+@media (max-width: 768px) {
+    .jlpt-inner {
+        padding: 12px 10px;
+        min-height: 100vh;
+    }
+    
+    #examActiveView {
+        padding: 10px;
+    }
+    
+    #questionWrapper {
+        padding: 16px 12px;
+    }
+    
+    .option-item {
+        padding: 12px 14px;
+    }
+    
+    .exam-nav button {
+        padding: 16px 20px;
+        font-size: 16px;
+    }
+}
+
+/* ผ่อนปรน Anti-Cheat บนมือถือ */
+@media (max-width: 768px) {
+    #cheatOverlay {
+        display: none !important;
+    }
+}
+/* === ปรับปรุงมือถือรอบสุดท้าย === */
+@media (max-width: 768px) {
+    body, .container, .jlpt-inner {
+        padding: 8px;
+        margin: 0;
+    }
+    
+    #examActiveView {
+        padding: 8px 10px;
+    }
+    
+    #questionWrapper {
+        padding: 16px 12px;
+        margin-bottom: 70px; /* ให้พื้นที่ปุ่มนำทาง */
+    }
+    
+    .option-item {
+        padding: 14px 16px;
+        margin: 10px 0;
+    }
+    
+    .exam-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--paper);
+        padding: 12px 10px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+    
+    .exam-nav button {
+        padding: 16px 20px;
+        font-size: 16px;
+        height: 56px;
+    }
+}
+
+/* ปิด Anti-Cheat Overlay บนมือถือแบบแรง */
+@media (max-width: 768px) {
+    #cheatOverlay {
+        display: none !important;
+    }
+}
     </style>
 </head>
 <body>
@@ -777,20 +873,36 @@
     }
 
     function enterExamRoom(examId) {
-        if(!confirm("ยืนยันเข้าห้องสอบ? ระบบจะเปิด Fullscreen และตรวจจับการทุจริต")) return;
-        document.documentElement.requestFullscreen().then(() => {
-            callAPI("getExamQuestions", { examId: examId }, function(data) {
-                examData = data; examData.examId = examId;
-                currentQuestionIndex = 0; userAnswers = {};
-                document.getElementById("studentView").classList.add("hidden");
-                document.getElementById("examActiveView").classList.remove("hidden");
-                document.getElementById("activeExamTitle").innerText = examData.title;
-                startAntiCheatMonitor();
-                initExamTimelineTimer();
-                renderRoomQuestion();
-            });
-        }).catch(() => alert("ระบบปฏิเสธ: เบราว์เซอร์ไม่รองรับ Fullscreen"));
-    }
+    if(!confirm("ยืนยันเข้าห้องสอบ?")) return;
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    callAPI("getExamQuestions", { examId: examId }, function(data) {
+        examData = data; 
+        examData.examId = examId;
+        currentQuestionIndex = 0; 
+        userAnswers = {};
+
+        document.getElementById("studentView").classList.add("hidden");
+        document.getElementById("examActiveView").classList.remove("hidden");
+        document.getElementById("activeExamTitle").innerText = examData.title;
+
+        // ================== ปรับสำหรับมือถือ ==================
+        if (!isMobile) {
+            document.documentElement.requestFullscreen().catch(() => {});
+            startAntiCheatMonitor();        // เปิด Anti-Cheat เฉพาะคอม
+        } else {
+            console.log("📱 มือถือโหมด - Anti-Cheat ถูกปิด");
+            // ปิด Anti-Cheat บนมือถือทั้งหมด
+            stopAntiCheatMonitor();
+            document.getElementById("cheatOverlay").style.display = "none";
+        }
+        // ====================================================
+
+        initExamTimelineTimer();
+        renderRoomQuestion();
+    });
+}
 
     function initExamTimelineTimer() {
         if(examInterval) clearInterval(examInterval);
