@@ -203,7 +203,7 @@
             padding: 20px; position: relative; overflow: hidden;
         }
         .exam-card::before {
-            content: 'N2';
+            content: 'JLPT';
             position: absolute; top: 14px; right: 14px;
             font-family: 'Noto Serif JP', serif;
             font-size: 11px; font-weight: 700; color: var(--red);
@@ -385,7 +385,6 @@
 <body>
 
 <div class="container">
-    <!-- ── HEADER ── -->
     <header id="mainHeader" class="hidden">
         <div class="header-brand">
             <div class="hanko">試験<br>公式</div>
@@ -399,7 +398,6 @@
 
     <div class="jlpt-inner">
 
-    <!-- ── AUTH VIEW ── -->
     <div id="authView" class="view">
         <div class="auth-logo">
             <div class="jlpt-badge">JLPT ONLINE EXAMINATION SYSTEM</div>
@@ -434,7 +432,6 @@
         <p class="fs-notice">ระบบนี้ใช้เทคโนโลยีป้องกันการทุจริต — กรุณาอ่านกฎการสอบก่อนเข้าห้องสอบ</p>
     </div>
 
-    <!-- ── STUDENT VIEW ── -->
     <div id="studentView" class="view hidden">
         <div class="tab-menu">
             <button class="tab-btn active" onclick="switchStudentTab('examListTab')">ข้อสอบที่เปิดอยู่</button>
@@ -461,7 +458,6 @@
         </div>
     </div>
 
-    <!-- ── EXAM ACTIVE VIEW ── -->
     <div id="examActiveView" class="view hidden">
         <div class="exam-header">
             <div>
@@ -479,11 +475,10 @@
         </div>
     </div>
 
-    <!-- ── ADMIN VIEW ── -->
     <div id="adminView" class="view hidden">
         <div class="tab-menu">
             <button class="tab-btn active" onclick="switchAdminTab('qBankTab')">คลังข้อสอบ</button>
-            <button class="tab-btn" onclick="switchAdminTab('jsonImportTab')">นำเข้า JSON</button>
+            <button class="tab-btn" onclick="switchAdminTab('jsonImportTab')">สร้างชุดจาก JSON</button>
             <button class="tab-btn" onclick="switchAdminTab('examManageTab')">ประกอบชุดสอบ</button>
             <button class="tab-btn" onclick="switchAdminTab('resultsTab')">ผลสอบทั้งหมด</button>
         </div>
@@ -527,17 +522,57 @@
         </div>
 
         <div id="jsonImportTab" class="sub-view hidden">
-            <div class="card">
-                <h4>นำเข้าข้อสอบแบบกลุ่ม (JSON)</h4>
-                <textarea id="jsonPasteArea" rows="12" placeholder='{ "questions": [ { "text": "คำถาม", "type": "multiple_choice", "answer": "ก", "audioUrl": "", "imageDriveId": "", "options": [{"text":"ก","imageDriveId":""}] } ] }'></textarea>
-                <button class="btn-success" onclick="importJSONBulk()" style="margin-top:14px;">ตรวจสอบและบันทึกแบบกลุ่ม</button>
+            <div class="card" style="max-width: 800px; margin: 0 auto;">
+                <h4 style="color: var(--navy); border-bottom: 2px solid var(--navy);">สร้างชุดข้อสอบจาก JSON (อัปโหลดและเปิดสอบทันที)</h4>
+                
+                <div class="grid-2" style="margin-top: 16px;">
+                    <div>
+                        <label>ชื่อชุดข้อสอบ</label>
+                        <input type="text" id="bulkExamTitle" placeholder="เช่น กลางภาค วิชา Network">
+                    </div>
+                    <div>
+                        <label>โหมดเวลา</label>
+                        <select id="bulkExamDurationType">
+                            <option value="total">เวลารวมทั้งชุด (นาที)</option>
+                            <option value="per_question">เวลารายข้อ (วินาที)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="margin-top: 10px;">
+                    <div>
+                        <label>ระบุเวลา</label>
+                        <input type="text" id="bulkExamDurationValue" value="45">
+                    </div>
+                    <div style="display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 8px;">
+                        <label style="text-transform:none; display:flex; align-items:center; gap:8px; font-size:13px; margin: 0 0 8px 0;">
+                            <input type="checkbox" id="bulkExamRandomize" style="width:16px; height:16px; margin:0;"> สุ่มลำดับข้อสอบ
+                        </label>
+                        <label style="text-transform:none; display:flex; align-items:center; gap:8px; font-size:13px; margin: 0;">
+                            <input type="checkbox" id="bulkExamShowAnswers" checked style="width:16px; height:16px; margin:0;"> แสดงเฉลยหลังสอบ
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section-rule" style="margin: 24px 0;"></div>
+
+                <label>ข้อมูล JSON (วางเฉพาะข้อมูลส่วนที่เป็น Array ของข้อสอบ)</label>
+                <textarea id="jsonPasteArea" rows="12" placeholder='[
+  { 
+    "text": "คำถาม", 
+    "type": "multiple_choice", 
+    "answer": "ก", 
+    "options": [{"text":"ก"}, {"text":"ข"}] 
+  }
+]'></textarea>
+                <button class="btn-primary" onclick="createExamFromJSON()" style="width:100%; margin-top:18px; font-size: 15px; padding: 14px;">สร้างชุดข้อสอบทันที</button>
             </div>
         </div>
 
         <div id="examManageTab" class="sub-view hidden">
             <div class="grid-2">
                 <div class="card">
-                    <h4>สร้างชุดข้อสอบ</h4>
+                    <h4>สร้างชุดข้อสอบ (จากคลังที่มีอยู่)</h4>
                     <label>ชื่อชุดข้อสอบ</label>
                     <input type="text" id="examTitleInput">
                     <label>โหมดเวลา</label>
@@ -577,11 +612,7 @@
         </div>
     </div>
 
-    </div><!-- /.jlpt-inner -->
-</div><!-- /.container -->
-
-<!-- ── CHEAT OVERLAY ── -->
-<div id="cheatOverlay" class="hidden">
+    </div></div><div id="cheatOverlay" class="hidden">
     <div class="alert-box alert-cheat">
         <h2 id="cheatAlertTitle">⚠️ ตรวจพบการสลับหน้าจอ</h2>
         <p id="cheatAlertDesc" style="margin-top:14px; line-height:1.7;"></p>
@@ -925,16 +956,47 @@
         });
     }
 
-    function importJSONBulk() {
+    // ── ส่วนที่แก้ไข: ฟังก์ชันสร้างข้อสอบจาก JSON แบบรวดเดียว ──
+    function createExamFromJSON() {
+        let title = document.getElementById("bulkExamTitle").value;
+        let dType = document.getElementById("bulkExamDurationType").value;
+        let dVal = document.getElementById("bulkExamDurationValue").value;
+        let rand = document.getElementById("bulkExamRandomize").checked;
+        let showAns = document.getElementById("bulkExamShowAnswers").checked;
         let rawStr = document.getElementById("jsonPasteArea").value;
+
+        if(!title) return alert("กรุณาระบุชื่อชุดข้อสอบ");
         if(!rawStr) return alert("กรุณาใส่ข้อมูล JSON");
+
         try {
             let parsed = JSON.parse(rawStr);
-            callAPI("bulkImportJSON", parsed, function(res) {
-                alert(`นำเข้าสำเร็จ ${res.importedCount} ข้อ`);
+            // รองรับทั้งแบบโยน Array เพียวๆ หรือแบบหุ้มด้วย { "questions": [...] }
+            let questionsArray = Array.isArray(parsed) ? parsed : parsed.questions;
+
+            if (!questionsArray || questionsArray.length === 0) {
+                return alert("ไม่พบข้อมูลข้อสอบใน JSON");
+            }
+
+            let payload = {
+                title: title,
+                settings: {
+                    durationType: dType,
+                    duration: dVal,
+                    randomize: rand,
+                    showAnswers: showAns
+                },
+                questions: questionsArray
+            };
+
+            callAPI("createExamWithNewQuestions", payload, function(res) {
+                alert(`อัปโหลดข้อสอบและสร้างชุดข้อสอบสำเร็จ จำนวน ${questionsArray.length} ข้อ`);
                 loadAdminPanelData();
+                document.getElementById("bulkExamTitle").value = "";
+                document.getElementById("jsonPasteArea").value = "";
             });
-        } catch(e) { alert("รูปแบบ JSON ไม่ถูกต้อง"); }
+        } catch(e) { 
+            alert("รูปแบบ JSON ไม่ถูกต้อง"); 
+        }
     }
 
     function saveExamSet() {
