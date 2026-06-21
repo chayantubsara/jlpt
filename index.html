@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ระบบสอบออนไลน์และคลังข้อสอบ Global</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── TOKEN SYSTEM ── */
+        :root {
+            --navy:    #1A2744;
+            --navy-mid:#243260;
+            --ivory:   #FAFAF7;
+            --paper:   #F4F2EA;
+            --line:    #D5CFC0;
+            --line-light: #E8E5DA;
+            --red:     #B5281C;
+            --red-soft:#D94535;
+            --gold:    #9B7D4A;
+            --gold-light: #C4A96A;
+            --ink:     #1E1A14;
+            --ink-mid: #3D3628;
+            --ink-light:#7A7060;
+            --green:   #2D6A4F;
+            --green-light:#52B788;
+            --radius-sm: 4px;
+            --radius:    8px;
+            --radius-lg: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Noto Sans JP', system-ui, sans-serif;
+            background-color: var(--navy);
+            background-image:
+                radial-gradient(ellipse at 0% 0%, rgba(36,50,96,0.8) 0%, transparent 60%),
+                repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(255,255,255,0.015) 28px, rgba(255,255,255,0.015) 29px);
+            color: var(--ink);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        /* ── TYPOGRAPHY ── */
+        h1, h2, h3, h4 { font-family: 'Noto Serif JP', serif; letter-spacing: 0.04em; }
+
+        /* ── INPUTS (≥16px prevents iOS zoom) ── */
+        input[type="text"], input[type="password"], select, textarea {
+            font-size: 16px !important;
+            font-family: 'Noto Sans JP', sans-serif;
+            width: 100%; padding: 11px 14px;
+            background-color: var(--ivory);
+            border: 1.5px solid var(--line);
+            color: var(--ink); border-radius: var(--radius-sm);
+            margin-top: 6px; transition: border-color 0.2s;
+            outline: none;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(155,125,74,0.15);
+        }
+        input[type="file"] {
+            font-size: 14px !important;
+            width: 100%; margin-top: 6px; color: var(--ink-light);
+        }
+
+        /* ── BUTTONS ── */
+        button {
+            font-family: 'Noto Sans JP', sans-serif;
+            font-size: 14px; font-weight: 500; letter-spacing: 0.06em;
+            padding: 11px 22px; border: none; border-radius: var(--radius-sm);
+            cursor: pointer; transition: all 0.18s;
+        }
+        .btn-primary {
+            background-color: var(--navy); color: var(--ivory);
+            border: 1.5px solid var(--navy-mid);
+        }
+        .btn-primary:hover { background-color: var(--navy-mid); }
+        .btn-success {
+            background-color: var(--green); color: #fff;
+        }
+        .btn-success:hover { background-color: #245740; }
+        .btn-danger {
+            background-color: var(--red); color: #fff;
+        }
+        .btn-danger:hover { background-color: #8f1e14; }
+        .btn-ghost {
+            background: transparent; color: var(--ink-mid);
+            border: 1.5px solid var(--line);
+        }
+        .btn-ghost:hover { background: var(--line-light); }
+
+        /* ── LAYOUT ── */
+        .container {
+            max-width: 1060px; margin: 0 auto;
+            background: var(--paper);
+            border-radius: var(--radius-lg);
+            border: 2px solid var(--navy);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.45), inset 0 0 0 6px var(--paper), inset 0 0 0 8px var(--navy-mid);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* ── JLPT SIGNATURE: double-border wrapper ── */
+        .jlpt-inner {
+            border: 1.5px solid var(--line);
+            margin: 8px;
+            border-radius: calc(var(--radius-lg) - 2px);
+            padding: 24px 28px 28px;
+            min-height: calc(100vh - 60px);
+            background: var(--paper);
+        }
+
+        /* ── HEADER ── */
+        header#mainHeader {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 28px 0;
+            margin-bottom: 0;
+        }
+        .header-brand {
+            display: flex; align-items: center; gap: 14px;
+        }
+        .hanko {
+            width: 44px; height: 44px;
+            background: var(--red); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Noto Serif JP', serif;
+            font-size: 11px; color: #fff; font-weight: 700;
+            letter-spacing: 0.1em; border: 2px solid #7a1710;
+            flex-shrink: 0;
+            writing-mode: horizontal-tb;
+            text-align: center; line-height: 1.2;
+        }
+        #userDisplayName {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 15px; color: var(--navy); font-weight: 600;
+        }
+        #userRoleDisplay {
+            font-size: 11px; color: var(--gold); text-transform: uppercase;
+            letter-spacing: 0.1em; margin-top: 2px;
+        }
+
+        /* ── SECTION DIVIDER ── */
+        .section-rule {
+            height: 1px; background: var(--line);
+            margin: 20px 0;
+        }
+        .section-rule-double {
+            border-top: 3px double var(--line);
+            margin: 20px 0;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--ivory);
+            border: 1.5px solid var(--line);
+            padding: 20px; border-radius: var(--radius-sm);
+            margin-bottom: 14px;
+        }
+        .card h4 {
+            font-size: 13px; color: var(--navy);
+            text-transform: uppercase; letter-spacing: 0.12em;
+            border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px;
+        }
+
+        /* ── GRID ── */
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+
+        /* ── TABS ── */
+        .tab-menu {
+            display: flex; gap: 2px; margin-bottom: 22px;
+            border-bottom: 2px solid var(--navy);
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: transparent; color: var(--ink-light);
+            border: none; border-radius: 0;
+            padding: 9px 16px; font-size: 13px; letter-spacing: 0.06em;
+            border-bottom: 3px solid transparent; margin-bottom: -2px;
+            position: relative; top: 0;
+        }
+        .tab-btn.active {
+            background: transparent; color: var(--navy);
+            font-weight: 700; border-bottom: 3px solid var(--navy);
+        }
+        .tab-btn:hover:not(.active) { color: var(--navy); }
+
+        /* ── TABLES ── */
+        .table-responsive { overflow-x: auto; border-radius: var(--radius-sm); margin-top: 14px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th { background-color: var(--navy); color: var(--ivory);
+             padding: 12px 14px; font-weight: 500; letter-spacing: 0.06em; font-size: 11px; text-transform: uppercase; }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--line-light); color: var(--ink); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(155,125,74,0.05); }
+
+        /* ── EXAM CARD (student list) ── */
+        .exam-card {
+            background: var(--ivory);
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-sm);
+            padding: 20px; position: relative; overflow: hidden;
+        }
+        .exam-card::before {
+            content: 'N2';
+            position: absolute; top: 14px; right: 14px;
+            font-family: 'Noto Serif JP', serif;
+            font-size: 11px; font-weight: 700; color: var(--red);
+            border: 1.5px solid var(--red); padding: 2px 6px;
+            border-radius: 2px; letter-spacing: 0.12em;
+        }
+        .exam-card h4 {
+            font-size: 15px; color: var(--navy); margin-bottom: 8px; padding-right: 46px;
+        }
+        .exam-card p { font-size: 12px; color: var(--ink-light); }
+
+        /* ── EXAM ACTIVE VIEW ── */
+        #examActiveView .exam-header {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 3px double var(--line);
+        }
+        #activeExamTitle { font-size: 16px; color: var(--navy); }
+        .exam-timer {
+            background: var(--navy); color: var(--ivory);
+            padding: 8px 18px; border-radius: var(--radius-sm);
+            font-weight: 700; font-family: 'Noto Serif JP', serif;
+            font-size: 14px; letter-spacing: 0.1em;
+            border: 1.5px solid var(--gold);
+            position: sticky; top: 10px; z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .exam-timer.urgent { background: var(--red); border-color: #ff9999; }
+
+        /* ── QUESTION CARD ── */
+        #questionWrapper {
+            background: var(--ivory);
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-sm);
+            padding: 24px;
+        }
+        #questionWrapper h4 {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 17px; color: var(--navy); line-height: 1.65;
+            margin-bottom: 4px;
+        }
+        .q-number {
+            font-size: 11px; color: var(--gold); font-weight: 700;
+            letter-spacing: 0.14em; text-transform: uppercase;
+            margin-bottom: 8px; display: block;
+        }
+        .q-number::before { content: '問題 '; }
+
+        /* ── OPTIONS ── */
+        .option-item {
+            background: var(--paper);
+            padding: 14px 16px;
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-sm);
+            margin: 8px 0; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .option-item:hover { border-color: var(--gold); background: #f7f4e8; }
+        .option-item:has(input:checked) {
+            border-color: var(--navy); background: rgba(26,39,68,0.05);
+        }
+        .option-row-layout { display: flex; align-items: center; gap: 12px; }
+        .option-row-layout input[type="radio"],
+        .option-row-layout input[type="checkbox"] {
+            width: 18px; height: 18px; cursor: pointer;
+            accent-color: var(--navy);
+            margin-top: 0; padding: 0; flex-shrink: 0;
+            border: none; background: none;
+        }
+        .option-row-layout label { cursor: pointer; font-size: 15px; color: var(--ink); line-height: 1.5; }
+
+        /* ── CHEAT OVERLAY ── */
+        #cheatOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(26,39,68,0.97); z-index: 99999;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            text-align: center; padding: 25px;
+        }
+        .alert-box {
+            max-width: 480px; width: 100%;
+            padding: 32px;
+            background: var(--ivory);
+            border: 2px solid var(--navy);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 0 0 6px var(--paper), 0 0 0 8px var(--navy);
+        }
+        .alert-box.alert-cheat { border-color: var(--red); box-shadow: 0 0 0 6px #fff1f0, 0 0 0 8px var(--red); }
+        .alert-box h2 {
+            font-family: 'Noto Serif JP', serif;
+            color: var(--navy); font-size: 18px; margin-bottom: 12px;
+        }
+        .alert-box.alert-cheat h2 { color: var(--red); }
+        .alert-box p { color: var(--ink-mid); font-size: 14px; line-height: 1.7; }
+
+        /* ── AUTH VIEW ── */
+        #authView {
+            max-width: 820px; margin: 32px auto;
+        }
+        .auth-logo {
+            text-align: center; margin-bottom: 28px;
+        }
+        .auth-logo h1 {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 22px; color: var(--navy); letter-spacing: 0.08em;
+        }
+        .auth-logo p {
+            font-size: 12px; color: var(--gold); letter-spacing: 0.18em;
+            text-transform: uppercase; margin-top: 4px;
+        }
+        .auth-logo .jlpt-badge {
+            display: inline-block; margin-bottom: 16px;
+            background: var(--navy); color: var(--ivory);
+            font-family: 'Noto Serif JP', serif;
+            font-size: 13px; padding: 6px 18px; letter-spacing: 0.2em;
+            border: 1.5px solid var(--gold);
+        }
+        label {
+            font-size: 12px; font-weight: 500; color: var(--ink-mid);
+            letter-spacing: 0.06em; text-transform: uppercase;
+            display: block; margin-top: 14px;
+        }
+
+        /* ── BADGES ── */
+        .badge { padding: 3px 10px; border-radius: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+        .badge-normal { background-color: #e6f4ee; color: var(--green); border: 1px solid #b0dfc7; }
+        .badge-cheat  { background-color: #fce8e6; color: var(--red);   border: 1px solid #f0b4ae; }
+
+        /* ── MEDIA ── */
+        .audio-frame { width: 100%; height: 70px; border: none; background: var(--paper); border-radius: var(--radius-sm); margin: 12px 0; display: block; border: 1px solid var(--line); }
+        .question-img, .option-img { max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); margin: 10px 0; display: block; object-fit: contain; background: #fff; padding: 6px; border: 1px solid var(--line); }
+
+        /* ── ADMIN LIST ── */
+        #activeExamsList { list-style-type: none; }
+        #activeExamsList li { padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--ink); }
+        #activeExamsList li:last-child { border-bottom: none; }
+
+        /* ── CHECKBOX SELECTOR ── */
+        #examQCheckboxSelector {
+            max-height: 220px; overflow-y: auto; padding: 10px;
+            background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm);
+        }
+        #examQCheckboxSelector label { text-transform: none; margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line-light); font-size: 13px; color: var(--ink); }
+        #examQCheckboxSelector label:last-child { border-bottom: none; }
+
+        /* ── NAVIGATE BTNS ── */
+        .exam-nav { display: flex; justify-content: space-between; margin-top: 22px; gap: 10px; }
+        .exam-nav button { flex: 1; }
+
+        /* ── FULLSCREEN NOTE ── */
+        .fs-notice {
+            text-align: center; font-size: 11px; color: var(--ink-light);
+            margin-top: 6px; letter-spacing: 0.04em;
+        }
+
+        /* ── UTILITY ── */
+        .hidden { display: none !important; }
+
+        /* ── JSON TEXTAREA ── */
+        #jsonPasteArea {
+            font-family: 'Courier New', monospace !important;
+            font-size: 13px !important;
+            background: #f9f8f4 !important; color: var(--ink);
+            border-color: var(--line);
+        }
+
+        /* ── MOBILE ── */
+        @media (max-width: 600px) {
+            .jlpt-inner { padding: 16px 14px 20px; }
+            .tab-btn { padding: 8px 10px; font-size: 12px; }
+            #questionWrapper h4 { font-size: 15px; }
+            header#mainHeader { padding: 12px 16px 0; }
+            .exam-nav { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- ── HEADER ── -->
+    <header id="mainHeader" class="hidden">
+        <div class="header-brand">
+            <div class="hanko">試験<br>公式</div>
+            <div>
+                <div id="userDisplayName">ยินดีต้อนรับ</div>
+                <div id="userRoleDisplay"></div>
+            </div>
+        </div>
+        <button class="btn-danger" onclick="logout()">ออกจากระบบ</button>
+    </header>
+
+    <div class="jlpt-inner">
+
+    <!-- ── AUTH VIEW ── -->
+    <div id="authView" class="view">
+        <div class="auth-logo">
+            <div class="jlpt-badge">JLPT ONLINE EXAMINATION SYSTEM</div>
+            <h1>ระบบประเมินผลสอบออนไลน์</h1>
+            <p>Global Language Assessment Platform</p>
+        </div>
+
+        <div class="section-rule-double"></div>
+
+        <div class="grid-2" style="max-width: 780px; margin: 0 auto;">
+            <div class="card">
+                <h4>เข้าสู่ระบบ (Login)</h4>
+                <label>ชื่อผู้ใช้งาน</label>
+                <input type="text" id="loginUsername">
+                <label>รหัสผ่าน</label>
+                <input type="password" id="loginPassword">
+                <button class="btn-primary" onclick="login()" style="width:100%; margin-top:18px;">เข้าสู่ห้องสอบ</button>
+            </div>
+            <div class="card" style="border-color: var(--gold);">
+                <h4 style="color: var(--gold);">สมัครสมาชิก (Register)</h4>
+                <label>ชื่อผู้ใช้งาน</label>
+                <input type="text" id="regUsername" placeholder="ภาษาอังกฤษหรือตัวเลข">
+                <label>รหัสผ่าน</label>
+                <input type="password" id="regPassword">
+                <label>ชื่อ-นามสกุลจริง</label>
+                <input type="text" id="regName">
+                <button class="btn-success" onclick="register()" style="width:100%; margin-top:18px;">ลงทะเบียนสมาชิก</button>
+            </div>
+        </div>
+
+        <div class="section-rule" style="margin-top: 28px;"></div>
+        <p class="fs-notice">ระบบนี้ใช้เทคโนโลยีป้องกันการทุจริต — กรุณาอ่านกฎการสอบก่อนเข้าห้องสอบ</p>
+    </div>
+
+    <!-- ── STUDENT VIEW ── -->
+    <div id="studentView" class="view hidden">
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchStudentTab('examListTab')">ข้อสอบที่เปิดอยู่</button>
+            <button class="tab-btn" onclick="switchStudentTab('historyTab')">ประวัติการสอบ</button>
+        </div>
+
+        <div id="examListTab" class="sub-view">
+            <div id="examsGridContainer" class="grid-2"></div>
+        </div>
+
+        <div id="historyTab" class="sub-view hidden">
+            <h3 style="font-size:14px; color:var(--navy); margin-bottom:4px;">ผลการประเมินคะแนนย้อนหลัง</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr>
+                        <th>ชุดข้อสอบ</th>
+                        <th>วันเวลา</th>
+                        <th>คะแนน</th>
+                        <th>สถานะ</th>
+                    </tr></thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── EXAM ACTIVE VIEW ── -->
+    <div id="examActiveView" class="view hidden">
+        <div class="exam-header">
+            <div>
+                <div style="font-size:10px; color:var(--gold); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:4px;">กำลังทำข้อสอบ</div>
+                <h3 id="activeExamTitle">—</h3>
+            </div>
+            <div id="examTimer" class="exam-timer">00:00</div>
+        </div>
+
+        <div id="questionWrapper"></div>
+
+        <div class="exam-nav">
+            <button id="prevBtn" class="btn-ghost" onclick="navigateQuestion(-1)">← ย้อนกลับ</button>
+            <button id="nextBtn" class="btn-primary" onclick="navigateQuestion(1)">ถัดไป →</button>
+        </div>
+    </div>
+
+    <!-- ── ADMIN VIEW ── -->
+    <div id="adminView" class="view hidden">
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchAdminTab('qBankTab')">คลังข้อสอบ</button>
+            <button class="tab-btn" onclick="switchAdminTab('jsonImportTab')">นำเข้า JSON</button>
+            <button class="tab-btn" onclick="switchAdminTab('examManageTab')">ประกอบชุดสอบ</button>
+            <button class="tab-btn" onclick="switchAdminTab('resultsTab')">ผลสอบทั้งหมด</button>
+        </div>
+
+        <div id="qBankTab" class="sub-view">
+            <div class="grid-2">
+                <div class="card">
+                    <h4>บันทึกข้อสอบเดี่ยว</h4>
+                    <label>ข้อความคำถาม</label>
+                    <textarea id="qText" rows="2"></textarea>
+                    <label>URL ไฟล์เสียงประกอบ (ถ้ามี)</label>
+                    <input type="text" id="qAudioUrl" placeholder="https://domain.com/sound.mp3">
+                    <label>รูปภาพประกอบคำถาม (ถ้ามี)</label>
+                    <input type="file" id="qImageFile" accept="image/*">
+                    <label>ประเภทข้อสอบ</label>
+                    <select id="qType" onchange="adjustOptionFormState()">
+                        <option value="multiple_choice">ปรนัย (เลือก 1 คำตอบจาก 4)</option>
+                        <option value="multiple_select">ปรนัยหลายคำตอบ</option>
+                        <option value="short_answer">อัตนัย / เติมคำ</option>
+                    </select>
+
+                    <div id="optionsBuilderArea" style="margin-top:16px;">
+                        <h5 style="font-size:11px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:10px;">ตัวเลือก</h5>
+                        <div style="margin-bottom:8px;"><input type="text" id="optText1" placeholder="ตัวเลือก ก"><input type="file" id="optImg1" accept="image/*"></div>
+                        <div style="margin-bottom:8px;"><input type="text" id="optText2" placeholder="ตัวเลือก ข"><input type="file" id="optImg2" accept="image/*"></div>
+                        <div style="margin-bottom:8px;"><input type="text" id="optText3" placeholder="ตัวเลือก ค"><input type="file" id="optImg3" accept="image/*"></div>
+                        <div style="margin-bottom:8px;"><input type="text" id="optText4" placeholder="ตัวเลือก ง"><input type="file" id="optImg4" accept="image/*"></div>
+                    </div>
+
+                    <label style="color: var(--red);">เฉลยที่ถูกต้อง</label>
+                    <input type="text" id="qAnswer" placeholder="คั่นด้วยจุลภาคกรณีหลายคำตอบ">
+                    <button class="btn-success" onclick="saveQuestionManual()" style="width:100%; margin-top:18px;">บันทึกลงคลัง</button>
+                </div>
+                <div class="card">
+                    <h4>รายการคลังข้อสอบ</h4>
+                    <div class="table-responsive" style="max-height:460px;">
+                        <table><thead><tr><th>คำถาม</th><th>ประเภท</th></tr></thead><tbody id="qPoolTableBody"></tbody></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="jsonImportTab" class="sub-view hidden">
+            <div class="card">
+                <h4>นำเข้าข้อสอบแบบกลุ่ม (JSON)</h4>
+                <textarea id="jsonPasteArea" rows="12" placeholder='{ "questions": [ { "text": "คำถาม", "type": "multiple_choice", "answer": "ก", "audioUrl": "", "imageDriveId": "", "options": [{"text":"ก","imageDriveId":""}] } ] }'></textarea>
+                <button class="btn-success" onclick="importJSONBulk()" style="margin-top:14px;">ตรวจสอบและบันทึกแบบกลุ่ม</button>
+            </div>
+        </div>
+
+        <div id="examManageTab" class="sub-view hidden">
+            <div class="grid-2">
+                <div class="card">
+                    <h4>สร้างชุดข้อสอบ</h4>
+                    <label>ชื่อชุดข้อสอบ</label>
+                    <input type="text" id="examTitleInput">
+                    <label>โหมดเวลา</label>
+                    <select id="examDurationType">
+                        <option value="total">เวลารวมทั้งชุด (นาที)</option>
+                        <option value="per_question">เวลารายข้อ (วินาที)</option>
+                    </select>
+                    <label>ระบุเวลา</label>
+                    <input type="text" id="examDurationValue" value="45">
+                    <label style="text-transform:none; margin-top:12px; display:flex; align-items:center; gap:8px; font-size:13px;">
+                        <input type="checkbox" id="examRandomize" style="width:16px; height:16px; margin:0;"> สุ่มลำดับข้อสอบ
+                    </label>
+                    <label style="text-transform:none; margin-top:8px; display:flex; align-items:center; gap:8px; font-size:13px;">
+                        <input type="checkbox" id="examShowAnswers" checked style="width:16px; height:16px; margin:0;"> แสดงเฉลยหลังสอบ
+                    </label>
+                    <h5 style="font-size:11px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; margin: 16px 0 8px;">เลือกข้อสอบเข้าชุด</h5>
+                    <div id="examQCheckboxSelector"></div>
+                    <button class="btn-primary" onclick="saveExamSet()" style="width:100%; margin-top:18px;">สร้างชุดข้อสอบ</button>
+                </div>
+                <div class="card">
+                    <h4>ชุดข้อสอบที่เปิดใช้งาน</h4>
+                    <ul id="activeExamsList"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsTab" class="sub-view hidden">
+            <h4 style="font-size:13px; color:var(--navy); margin-bottom:14px; letter-spacing:0.08em; text-transform:uppercase;">ผลสอบและตรวจจับทุจริต</h4>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr>
+                        <th>ผู้ใช้</th><th>ชุดข้อสอบ</th><th>คะแนน</th><th>วันเวลา</th><th>สถานะ</th>
+                    </tr></thead>
+                    <tbody id="adminResultsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    </div><!-- /.jlpt-inner -->
+</div><!-- /.container -->
+
+<!-- ── CHEAT OVERLAY ── -->
+<div id="cheatOverlay" class="hidden">
+    <div class="alert-box alert-cheat">
+        <h2 id="cheatAlertTitle">⚠️ ตรวจพบการสลับหน้าจอ</h2>
+        <p id="cheatAlertDesc" style="margin-top:14px; line-height:1.7;"></p>
+        <button id="cheatActionBtn" onclick="resumeExamFromWarning()"
+            class="btn-primary" style="width:100%; margin-top:22px;">
+            รับทราบ — กลับเข้าห้องสอบ
+        </button>
+    </div>
+</div>
+
+<script>
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyaNUql-6Va1GQRGUKGFaeyXMZh0sKkbD5twawzLCmygC6BagCslcIjoa_FEEcTZHYR/exec";
+
+    let currentUser = null;
+    let examData = null;
+    let currentQuestionIndex = 0;
+    let userAnswers = {};
+    let cheatLogs = [];
+    let cheatCount = 0;
+    let examInterval = null;
+    let timeLeft = 0;
+
+    window.onload = function() {
+        const session = localStorage.getItem("global_session");
+        if(session) {
+            currentUser = JSON.parse(session);
+            showMainDashboard();
+        }
+    };
+
+    function callAPI(action, data, callback) {
+        fetch(GAS_API_URL, {
+            method: "POST", mode: "cors",
+            body: JSON.stringify({ action: action, data: data })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if(res.success) callback(res.data);
+            else alert("ระบบแจ้งข้อผิดพลาด: " + res.error);
+        }).catch(() => alert("การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว"));
+    }
+
+    function login() {
+        let u = document.getElementById("loginUsername").value;
+        let p = document.getElementById("loginPassword").value;
+        if(!u || !p) return alert("กรุณาระบุชื่อผู้ใช้และรหัสผ่าน");
+        callAPI("login", { username: u, password: p }, function(user) {
+            currentUser = user;
+            localStorage.setItem("global_session", JSON.stringify(user));
+            showMainDashboard();
+        });
+    }
+
+    function register() {
+        let u = document.getElementById("regUsername").value;
+        let p = document.getElementById("regPassword").value;
+        let n = document.getElementById("regName").value;
+        if(!u || !p || !n) return alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+        callAPI("register", { username: u, password: p, name: n }, function(user) {
+            alert("สมัครสมาชิกสำเร็จ ระบบเข้าสู่ระบบอัตโนมัติ");
+            currentUser = user;
+            localStorage.setItem("global_session", JSON.stringify(user));
+            showMainDashboard();
+        });
+    }
+
+    function logout() {
+        localStorage.removeItem("global_session");
+        currentUser = null;
+        location.reload();
+    }
+
+    function showMainDashboard() {
+        document.getElementById("authView").classList.add("hidden");
+        document.getElementById("mainHeader").classList.remove("hidden");
+        document.getElementById("userDisplayName").innerText = "ผู้เข้าใช้งาน: " + currentUser.name;
+        document.getElementById("userRoleDisplay").innerText = currentUser.role.toUpperCase();
+        if(currentUser.role === "admin") {
+            document.getElementById("adminView").classList.remove("hidden");
+            loadAdminPanelData();
+        } else {
+            document.getElementById("studentView").classList.remove("hidden");
+            loadStudentDashboardData();
+        }
+    }
+
+    // ── ANTI-CHEAT ──
+    function startAntiCheatMonitor() {
+        cheatCount = 0; cheatLogs = [];
+        window.addEventListener("blur", triggerCheatStrike);
+        document.addEventListener("visibilitychange", triggerCheatStrike);
+    }
+    function stopAntiCheatMonitor() {
+        window.removeEventListener("blur", triggerCheatStrike);
+        document.removeEventListener("visibilitychange", triggerCheatStrike);
+    }
+    function triggerCheatStrike() {
+        if (document.visibilityState === 'hidden' || !document.hasFocus()) {
+            window.removeEventListener("blur", triggerCheatStrike);
+            document.removeEventListener("visibilitychange", triggerCheatStrike);
+            cheatCount++;
+            cheatLogs.push({ time: new Date().toLocaleTimeString(), event: `สลับหน้าจอครั้งที่ ${cheatCount}` });
+            let overlay = document.getElementById("cheatOverlay");
+            let title = document.getElementById("cheatAlertTitle");
+            let desc = document.getElementById("cheatAlertDesc");
+            let btn = document.getElementById("cheatActionBtn");
+            overlay.querySelector('.alert-box').classList.add('alert-cheat');
+            if (cheatCount === 1) {
+                title.innerText = "⚠️ ตรวจพบการสลับหน้าจอ (ครั้งที่ 1/3)";
+                desc.innerText = "กรุณาอยู่ในหน้าสอบตลอดเวลา ห้ามสลับแท็บหรือออกจาก Fullscreen หากเกิน 3 ครั้ง ผลสอบจะถูกยกเลิกทันที";
+                btn.innerText = "รับทราบ — กลับเข้าห้องสอบ";
+                btn.style.display = "";
+            } else if (cheatCount === 2) {
+                title.innerText = "⚠️ เตือนครั้งสุดท้าย (ครั้งที่ 2/3)";
+                desc.innerText = "ตรวจพบการออกจากหน้าสอบครั้งที่ 2 หากเกิดขึ้นอีกครั้ง กระดาษคำตอบจะถูกส่งและคะแนนจะเป็น 0";
+                btn.innerText = "กลับเข้าห้องสอบรอบสุดท้าย";
+                btn.style.display = "";
+            } else {
+                title.innerText = "🚨 หมดสิทธิ์สอบ (ทุจริต)";
+                desc.innerText = "ผู้สอบออกจากหน้าสอบเกิน 3 ครั้ง ระบบตัดสิทธิ์และส่งรายงานให้ผู้ดูแลแล้ว";
+                btn.style.display = "none";
+                setTimeout(() => forcedSubmitByCheat(), 3500);
+            }
+            overlay.classList.remove("hidden");
+        }
+    }
+    function resumeExamFromWarning() {
+        document.documentElement.requestFullscreen().then(() => {
+            document.getElementById("cheatOverlay").classList.add("hidden");
+            setTimeout(() => {
+                window.addEventListener("blur", triggerCheatStrike);
+                document.addEventListener("visibilitychange", triggerCheatStrike);
+            }, 300);
+        }).catch(() => alert("กรุณาเปิด Fullscreen ก่อนทำสอบต่อ"));
+    }
+
+    // ── EXAM ENGINE ──
+    function loadStudentDashboardData() {
+        callAPI("getExams", {}, function(exams) {
+            let container = document.getElementById("examsGridContainer");
+            container.innerHTML = "";
+            for(let key in exams) {
+                let ex = exams[key];
+                container.innerHTML += `
+                    <div class="exam-card">
+                        <h4>${ex.title}</h4>
+                        <p style="margin-bottom:14px;">โหมด: ${ex.settings.durationType === 'total' ? 'จับเวลารวม' : 'จับเวลารายข้อ'}</p>
+                        <button class="btn-primary" onclick="enterExamRoom('${key}')" style="width:100%;">เข้าห้องสอบ</button>
+                    </div>`;
+            }
+        });
+        callAPI("getUserHistory", { username: currentUser.username }, function(history) {
+            let tbody = document.getElementById("historyTableBody");
+            tbody.innerHTML = "";
+            history.forEach(h => {
+                let badge = h.status === 'Normal'
+                    ? `<span class="badge badge-normal">ปกติ</span>`
+                    : `<span class="badge badge-cheat">โมฆะ</span>`;
+                tbody.innerHTML += `<tr><td><b>${h.examTitle}</b></td><td>${new Date(h.timestamp).toLocaleString()}</td><td style="font-weight:700;">${h.score} / ${h.total}</td><td>${badge}</td></tr>`;
+            });
+        });
+    }
+
+    function enterExamRoom(examId) {
+        if(!confirm("ยืนยันเข้าห้องสอบ? ระบบจะเปิด Fullscreen และตรวจจับการทุจริต")) return;
+        document.documentElement.requestFullscreen().then(() => {
+            callAPI("getExamQuestions", { examId: examId }, function(data) {
+                examData = data; examData.examId = examId;
+                currentQuestionIndex = 0; userAnswers = {};
+                document.getElementById("studentView").classList.add("hidden");
+                document.getElementById("examActiveView").classList.remove("hidden");
+                document.getElementById("activeExamTitle").innerText = examData.title;
+                startAntiCheatMonitor();
+                initExamTimelineTimer();
+                renderRoomQuestion();
+            });
+        }).catch(() => alert("ระบบปฏิเสธ: เบราว์เซอร์ไม่รองรับ Fullscreen"));
+    }
+
+    function initExamTimelineTimer() {
+        if(examInterval) clearInterval(examInterval);
+        if(examData.settings.durationType === "total") {
+            timeLeft = parseInt(examData.settings.duration) * 60;
+            examInterval = setInterval(() => {
+                timeLeft--;
+                let m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+                let s = (timeLeft%60).toString().padStart(2,'0');
+                let el = document.getElementById("examTimer");
+                el.innerText = `เวลา ${m}:${s}`;
+                if(timeLeft <= 60) el.classList.add('urgent');
+                if(timeLeft <= 0) autoSubmitExamFinal(false);
+            }, 1000);
+        } else { resetPerQuestionTimer(); }
+    }
+
+    function resetPerQuestionTimer() {
+        if(examData.settings.durationType !== "per_question") return;
+        if(examInterval) clearInterval(examInterval);
+        timeLeft = parseInt(examData.settings.duration);
+        examInterval = setInterval(() => {
+            document.getElementById("examTimer").innerText = `เวลาข้อนี้: ${timeLeft} วิ`;
+            if(timeLeft <= 5) document.getElementById("examTimer").classList.add('urgent');
+            timeLeft--;
+            if(timeLeft < 0) { clearInterval(examInterval); navigateQuestion(1); }
+        }, 1000);
+    }
+
+    function renderRoomQuestion() {
+        let q = examData.questions[currentQuestionIndex];
+        let wrapper = document.getElementById("questionWrapper");
+        wrapper.innerHTML = `
+            <span class="q-number">${currentQuestionIndex + 1} / ${examData.questions.length}</span>
+            <h4>${q.text}</h4>
+            <div id="mediaBox"></div>
+            <div id="choiceBox" style="margin-top:18px;"></div>`;
+
+        let mediaBox = document.getElementById("mediaBox");
+        if(q.audioUrl) mediaBox.innerHTML += `<iframe src="${q.audioUrl}" class="audio-frame"></iframe>`;
+        if(q.imageDriveId) {
+            callAPI("fetchDriveImageBase64", { fileId: q.imageDriveId }, function(base64) {
+                if(base64) mediaBox.innerHTML += `<img src="${base64}" class="question-img">`;
+            });
+        }
+
+        let choiceBox = document.getElementById("choiceBox");
+        if(q.type === "multiple_choice") {
+            q.options.forEach(opt => {
+                let uid = 'io_' + Math.random().toString(36).substr(2,5);
+                let checked = userAnswers[q.id] === opt.text ? 'checked' : '';
+                let block = document.createElement('div');
+                block.className = "option-item";
+                block.innerHTML = `<div class="option-row-layout"><input type="radio" name="r_${q.id}" ${checked} onclick="saveSelectionRadio('${q.id}','${opt.text}')"><label>${opt.text}</label></div><div id="${uid}"></div>`;
+                choiceBox.appendChild(block);
+                if(opt.imageDriveId) callAPI("fetchDriveImageBase64",{fileId:opt.imageDriveId},function(b64){if(b64)document.getElementById(uid).innerHTML=`<img src="${b64}" class="option-img">`;});
+            });
+        } else if(q.type === "multiple_select") {
+            let sel = userAnswers[q.id] || [];
+            q.options.forEach(opt => {
+                let uid = 'io_' + Math.random().toString(36).substr(2,5);
+                let checked = sel.includes(opt.text) ? 'checked' : '';
+                let block = document.createElement('div');
+                block.className = "option-item";
+                block.innerHTML = `<div class="option-row-layout"><input type="checkbox" ${checked} onchange="saveSelectionCheckbox('${q.id}','${opt.text}',this.checked)"><label>${opt.text}</label></div><div id="${uid}"></div>`;
+                choiceBox.appendChild(block);
+                if(opt.imageDriveId) callAPI("fetchDriveImageBase64",{fileId:opt.imageDriveId},function(b64){if(b64)document.getElementById(uid).innerHTML=`<img src="${b64}" class="option-img">`;});
+            });
+        } else {
+            let val = userAnswers[q.id] || "";
+            choiceBox.innerHTML = `<input type="text" id="sa_${q.id}" oninput="saveSelectionShortAnswer('${q.id}',this.value)" value="${val}" placeholder="พิมพ์คำตอบที่นี่...">`;
+        }
+
+        document.getElementById("prevBtn").style.display = (currentQuestionIndex === 0 || examData.settings.durationType === "per_question") ? "none" : "block";
+        document.getElementById("nextBtn").innerText = (currentQuestionIndex === examData.questions.length-1) ? "ส่งกระดาษคำตอบ" : "ถัดไป →";
+    }
+
+    function saveSelectionRadio(qid, val) { userAnswers[qid] = val; }
+    function saveSelectionCheckbox(qid, val, status) {
+        if(!userAnswers[qid]) userAnswers[qid] = [];
+        if(status) { if(!userAnswers[qid].includes(val)) userAnswers[qid].push(val); }
+        else { userAnswers[qid] = userAnswers[qid].filter(v=>v!==val); }
+    }
+    function saveSelectionShortAnswer(qid, val) { userAnswers[qid] = val; }
+
+    function navigateQuestion(direction) {
+        currentQuestionIndex += direction;
+        if(currentQuestionIndex >= examData.questions.length) {
+            if(confirm("ยืนยันส่งกระดาษคำตอบ?")) autoSubmitExamFinal(false);
+            else currentQuestionIndex--;
+        } else { renderRoomQuestion(); resetPerQuestionTimer(); }
+    }
+    function forcedSubmitByCheat() { autoSubmitExamFinal(true); }
+    function autoSubmitExamFinal(isPenalized) {
+        if(examInterval) clearInterval(examInterval);
+        stopAntiCheatMonitor();
+        callAPI("submitExam", { username: currentUser.username, examId: examData.examId, answers: userAnswers, logs: cheatLogs, isPenalized: isPenalized }, function(res) {
+            if(res.status === "Penalized") alert("ส่งคำตอบแล้ว: คะแนนถูกปรับเป็น 0 เนื่องจากทุจริต");
+            else alert(`ส่งข้อสอบสำเร็จ คะแนน: ${res.score} / ${res.total}`);
+            document.getElementById("cheatOverlay").classList.add("hidden");
+            document.exitFullscreen().catch(()=>{});
+            document.getElementById("examActiveView").classList.add("hidden");
+            showMainDashboard();
+        });
+    }
+
+    // ── ADMIN ──
+    function loadAdminPanelData() {
+        callAPI("getQuestions", {}, function(qs) {
+            let tbody = document.getElementById("qPoolTableBody");
+            let selector = document.getElementById("examQCheckboxSelector");
+            tbody.innerHTML = ""; selector.innerHTML = "";
+            for(let key in qs) {
+                tbody.innerHTML += `<tr><td>${qs[key].text}</td><td>${qs[key].type}</td></tr>`;
+                selector.innerHTML += `<label><input type="checkbox" name="adminSelectQ" value="${key}"> ${qs[key].text}</label>`;
+            }
+        });
+        callAPI("getExams", {}, function(exams) {
+            let list = document.getElementById("activeExamsList"); list.innerHTML = "";
+            for(let key in exams) list.innerHTML += `<li>📂 <b>${exams[key].title}</b> (${exams[key].questionIds ? exams[key].questionIds.length : 0} ข้อ)</li>`;
+        });
+        callAPI("getAllResults", {}, function(results) {
+            let tbody = document.getElementById("adminResultsTableBody"); tbody.innerHTML = "";
+            for(let key in results) {
+                let r = results[key];
+                let badge = r.status === 'Normal' ? `<span class="badge badge-normal">ปกติ</span>` : `<span class="badge badge-cheat">ทุจริต</span>`;
+                tbody.innerHTML += `<tr><td><b>${r.username}</b></td><td>${r.examTitle}</td><td style="font-weight:700;">${r.score} / ${r.total}</td><td>${new Date(r.timestamp).toLocaleString()}</td><td>${badge}</td></tr>`;
+            }
+        });
+    }
+
+    async function saveQuestionManual() {
+        let text = document.getElementById("qText").value;
+        let type = document.getElementById("qType").value;
+        let ans = document.getElementById("qAnswer").value;
+        let audio = document.getElementById("qAudioUrl").value;
+        if(!text || !ans) return alert("กรุณาป้อนคำถามและเฉลย");
+        let mainImgId = "";
+        let mainImgFile = document.getElementById("qImageFile").files[0];
+        if(mainImgFile) mainImgId = await uploadFileBlobToDrive(mainImgFile);
+        let optionsPayload = [];
+        if(type !== "short_answer") {
+            for(let i=1; i<=4; i++) {
+                let optTxt = document.getElementById("optText"+i).value;
+                let optFile = document.getElementById("optImg"+i).files[0];
+                let optImgId = optFile ? await uploadFileBlobToDrive(optFile) : "";
+                if(optTxt || optImgId) optionsPayload.push({ text: optTxt, imageDriveId: optImgId });
+            }
+        }
+        callAPI("createQuestion", { text, type, answer: ans, audioUrl: audio, imageDriveId: mainImgId, options: optionsPayload }, function() {
+            alert("บันทึกคำถามสำเร็จ"); location.reload();
+        });
+    }
+
+    function uploadFileBlobToDrive(file) {
+        return new Promise((resolve) => {
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let base64Str = e.target.result.split(",")[1];
+                callAPI("uploadImage", { base64: base64Str, fileName: file.name, mimeType: file.type }, function(res) { resolve(res.fileId); });
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function importJSONBulk() {
+        let rawStr = document.getElementById("jsonPasteArea").value;
+        if(!rawStr) return alert("กรุณาใส่ข้อมูล JSON");
+        try {
+            let parsed = JSON.parse(rawStr);
+            callAPI("bulkImportJSON", parsed, function(res) {
+                alert(`นำเข้าสำเร็จ ${res.importedCount} ข้อ`);
+                loadAdminPanelData();
+            });
+        } catch(e) { alert("รูปแบบ JSON ไม่ถูกต้อง"); }
+    }
+
+    function saveExamSet() {
+        let title = document.getElementById("examTitleInput").value;
+        let dType = document.getElementById("examDurationType").value;
+        let dVal = document.getElementById("examDurationValue").value;
+        let rand = document.getElementById("examRandomize").checked;
+        let showAns = document.getElementById("examShowAnswers").checked;
+        let checkedBoxes = document.querySelectorAll('input[name="adminSelectQ"]:checked');
+        let qids = []; checkedBoxes.forEach(cb => qids.push(cb.value));
+        if(!title || qids.length === 0) return alert("กรุณาระบุชื่อและเลือกข้อสอบอย่างน้อย 1 ข้อ");
+        callAPI("createExam", { title, questionIds: qids, settings: { durationType: dType, duration: dVal, randomize: rand, showAnswers: showAns } }, function() {
+            alert("สร้างชุดข้อสอบสำเร็จ"); loadAdminPanelData();
+        });
+    }
+
+    function adjustOptionFormState() {
+        let t = document.getElementById("qType").value;
+        document.getElementById("optionsBuilderArea").style.display = (t === "short_answer") ? "none" : "block";
+    }
+    function switchAdminTab(tabId) {
+        document.querySelectorAll('#adminView .sub-view').forEach(v => v.classList.add("hidden"));
+        document.querySelectorAll('#adminView .tab-btn').forEach(b => b.classList.remove("active"));
+        document.getElementById(tabId).classList.remove("hidden");
+        event.target.classList.add("active");
+    }
+    function switchStudentTab(tabId) {
+        document.querySelectorAll('#studentView .sub-view').forEach(v => v.classList.add("hidden"));
+        document.querySelectorAll('#studentView .tab-btn').forEach(b => b.classList.remove("active"));
+        document.getElementById(tabId).classList.remove("hidden");
+        event.target.classList.add("active");
+    }
+</script>
+</body>
+</html>
